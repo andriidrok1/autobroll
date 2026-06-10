@@ -1,0 +1,27 @@
+# secrets — НИКОГДА не коммитить
+.env
+
+# deps / build
+node_modules/
+out/
+.venv/
+whisper.cpp/
+
+# медиа и сгенерированные данные (большие, личные)
+public/clip.mp4
+public/clip.16k.wav
+public/whisperx/
+public/clips/
+public/music/
+public/exports/
+# сгенерированные pipeline/editor JSON (не исходники)
+public/transcript.json
+public/accents.json
+public/placement.json
+public/meta.json
+public/broll-plan.json
+public/timeline.json
+public/project.json
+
+# IDE
+.idea/

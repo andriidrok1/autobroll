@@ -1,0 +1,55 @@
+{
+  "name": "autobroll",
+  "version": "0.1.0",
+  "description": "Auto-generate clean, human-looking captions from a video transcript and overlay them onto talking-head video — plus a browser editor to tweak by hand.",
+  "license": "MIT",
+  "bin": {
+    "autobroll": "bin/autobroll.mjs"
+  },
+  "files": [
+    "bin",
+    "scripts",
+    "src",
+    "editor",
+    "server",
+    "remotion.config.ts",
+    "tsconfig.json",
+    "vite.config.ts"
+  ],
+  "keywords": [
+    "remotion",
+    "captions",
+    "subtitles",
+    "video",
+    "whisper",
+    "b-roll",
+    "short-form",
+    "video-editing"
+  ],
+  "scripts": {
+    "studio": "remotion studio",
+    "render": "remotion render Captioned out/video.mp4",
+    "pipeline": "node scripts/pipeline.mjs",
+    "editor": "vite",
+    "editor:server": "node server/index.mjs",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.380",
+    "@remotion/install-whisper-cpp": "^4.0.380",
+    "@remotion/media-parser": "^4.0.380",
+    "@remotion/player": "^4.0.380",
+    "@remotion/studio": "^4.0.380",
+    "react": "19.0.0",
+    "react-dom": "19.0.0",
+    "remotion": "4.0.380",
+    "zustand": "^5.0.14"
+  },
+  "devDependencies": {
+    "@types/react": "19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^4.7.0",
+    "typescript": "5.8.2",
+    "vite": "^5.4.21"
+  }
+}
