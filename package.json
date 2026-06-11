@@ -1,21 +1,9 @@
 {
   "name": "autobroll",
-  "version": "0.1.0",
-  "description": "Auto-generate clean, human-looking captions from a video transcript and overlay them onto talking-head video — plus a browser editor to tweak by hand.",
+  "version": "0.2.0",
+  "description": "AI short-form video editor in the browser: auto-arrange takes, cut silence, human-looking captions, auto B-roll, keyframed zoom/pan — built on Remotion.",
   "license": "MIT",
-  "bin": {
-    "autobroll": "bin/autobroll.mjs"
-  },
-  "files": [
-    "bin",
-    "scripts",
-    "src",
-    "editor",
-    "server",
-    "remotion.config.ts",
-    "tsconfig.json",
-    "vite.config.ts"
-  ],
+  "private": true,
   "keywords": [
     "remotion",
     "captions",
@@ -27,11 +15,10 @@
     "video-editing"
   ],
   "scripts": {
-    "studio": "remotion studio",
-    "render": "remotion render Captioned out/video.mp4",
-    "pipeline": "node scripts/pipeline.mjs",
+    "start": "node scripts/dev.mjs",
     "editor": "vite",
     "editor:server": "node server/index.mjs",
+    "studio": "remotion studio",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -49,6 +36,9 @@
     "@types/react": "19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^4.7.0",
+    "autoprefixer": "^10.5.0",
+    "postcss": "^8.5.15",
+    "tailwindcss": "^3.4.19",
     "typescript": "5.8.2",
     "vite": "^5.4.21"
   }

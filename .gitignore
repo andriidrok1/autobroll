@@ -1,4 +1,4 @@
-# secrets — НИКОГДА не коммитить
+# secrets — never commit
 .env
 
 # deps / build
@@ -7,21 +7,19 @@ out/
 .venv/
 whisper.cpp/
 
-# медиа и сгенерированные данные (большие, личные)
-public/clip.mp4
-public/clip.16k.wav
-public/whisperx/
-public/clips/
-public/music/
-public/exports/
-# сгенерированные pipeline/editor JSON (не исходники)
-public/transcript.json
-public/accents.json
-public/placement.json
-public/meta.json
-public/broll-plan.json
-public/timeline.json
-public/project.json
+# ALL user media + generated data live in public/ (clips, projects with speech
+# transcripts, music, waveforms, exports) — personal, never committed
+public/*
+!public/.gitkeep
+
+# pipeline temp files
+.captions-tmp/
+.props-*.json
+.clips-*.json
+.broll-*.json
+.arrange-*.json
+.trim-*.json
+.upload-*
 
 # IDE
 .idea/

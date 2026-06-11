@@ -1,69 +1,50 @@
 // Caption-сущности: редактируемая модель субтитров.
-// Строятся один раз из words+accents+placements, дальше редактируются в сторе.
+// Анкорятся к клипу: clipId + времена ОТНОСИТЕЛЬНО исходного клипа (0 = начало
+// несрезанного клипа). Абсолютная позиция на таймлайне вычисляется projectCaptions
+// из текущих clips — поэтому при перестановке/обрезке клипа субтитры едут с ним.
 
-export type Word = {word: string; startMs: number; endMs: number};
-export type Placement = {fromMs: number; toMs: number; topPct: number};
+import {placeClips, type Clip} from './timeline';
 
 export type CaptionWord = {text: string; startMs: number; endMs: number; accent: boolean};
 export type Caption = {
   id: string;
+  clipId?: string; // к какому клипу привязан (source-relative времена ниже)
   words: CaptionWord[];
   startMs: number;
   endMs: number;
   topPct: number;
+  scale?: number; // size multiplier (1 = default), set via the on-preview slider
+  holdMaxMs?: number; // projected only: clip's end — the visual hold must not bleed into the next clip
 };
 
-const MAX_WORDS = 4;
-const GAP_MS = 700;
-export const DEFAULT_TOP = 58;
-
-const PUNCT_ONLY = /^[.,!?;:()\-—]+$/;
-const SENT_END = /[.!?]$/;
-const toDisplay = (w: string) => w.replace(/[.,;:]+$/g, '').replace(/^[.,;:]+/g, '');
-
-type Page = {words: CaptionWord[]; start: number; end: number};
-
-function buildPages(raw: Word[], accentIdx: number[]): Page[] {
-  const acc = new Set(accentIdx);
-  const pages: Page[] = [];
-  let cur: CaptionWord[] = [];
-  let skipParen = false;
-  const flush = () => {
-    if (cur.length) {
-      pages.push({words: cur, start: cur[0].startMs, end: cur[cur.length - 1].endMs});
-      cur = [];
+// Source-relative captions → absolute timeline captions, honoring current clip
+// order + trim. Drops captions whose clip was removed or trimmed away.
+export function projectCaptions(captions: Caption[], clips: Clip[], fps: number): Caption[] {
+  if (!clips.length) return captions; // no clip context → assume already absolute
+  const placed = placeClips(clips, fps);
+  const byId = new Map(placed.map((p) => [p.clip.id, p]));
+  const out: Caption[] = [];
+  for (const cap of captions) {
+    if (!cap.clipId) {
+      out.push(cap); // legacy/absolute caption — pass through
+      continue;
     }
-  };
-  raw.forEach((w, i) => {
-    if (w.word === '(') { skipParen = true; flush(); return; }
-    if (w.word === ')') { skipParen = false; return; }
-    if (skipParen || PUNCT_ONLY.test(w.word)) return;
-    const prev = cur[cur.length - 1];
-    const bigGap = prev && w.startMs - prev.endMs > GAP_MS;
-    if (cur.length >= MAX_WORDS || bigGap) flush();
-    const display = toDisplay(w.word);
-    if (!display) return;
-    cur.push({text: display, startMs: w.startMs, endMs: w.endMs, accent: acc.has(i)});
-    if (SENT_END.test(w.word)) flush();
-  });
-  flush();
-  return pages;
-}
-
-export function buildCaptions(
-  words: Word[],
-  accents: number[],
-  placements: Placement[],
-  defaultTop = DEFAULT_TOP,
-): Caption[] {
-  return buildPages(words, accents).map((p, i) => {
-    const scene = placements.find((pl) => p.start >= pl.fromMs && p.start < pl.toMs);
-    return {
-      id: `c${i}`,
-      words: p.words,
-      startMs: p.start,
-      endMs: p.end,
-      topPct: scene ? scene.topPct : defaultTop,
-    };
-  });
+    const pc = byId.get(cap.clipId);
+    if (!pc) continue; // clip deleted
+    const inMs = pc.clip.inSec * 1000;
+    const outMs = pc.clip.outSec * 1000;
+    if (cap.startMs >= outMs || cap.endMs <= inMs) continue; // trimmed away
+    // source-relative → absolute timeline, honoring playback speed (slow-mo
+    // stretches the words with the speech, speed-up compresses them)
+    const speed = pc.clip.speed ?? 1;
+    const toAbs = (srcMs: number) => pc.startMs + (srcMs - inMs) / speed;
+    out.push({
+      ...cap,
+      startMs: toAbs(cap.startMs),
+      endMs: Math.min(toAbs(cap.endMs), pc.endMs),
+      holdMaxMs: pc.endMs, // don't let the visual hold bleed into the next clip
+      words: cap.words.map((w) => ({...w, startMs: toAbs(w.startMs), endMs: toAbs(w.endMs)})),
+    });
+  }
+  return out.sort((a, b) => a.startMs - b.startMs);
 }

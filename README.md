@@ -1,80 +1,85 @@
 # AutoBroll
 
-Auto-generate clean, **human-looking captions** for talking-head video — then tweak them in a browser editor.
+An AI short-form video editor that runs in your browser. Drop in your raw takes — it listens to them, puts them in narrative order, cuts the silence, writes human-looking captions, finds B-roll, and lets you polish everything on a CapCut-style timeline. Export to mp4. Built on [Remotion](https://remotion.dev).
 
-Most AI caption tools lock subtitles to the bottom, highlight every other word, and slap a box behind them. The result reads like a machine made it. AutoBroll does the opposite: it's sparing with accents, places captions where they don't cover faces or on-screen text, and renders everything as React/Remotion graphics so the output looks like a human editor cut it by hand.
+Most AI caption tools lock subtitles to the bottom, highlight every other word, and slap a box behind them. AutoBroll is the opposite: sparing gold accents on the words that matter, captions placed where they don't cover your face, soft cross-dissolves — output that reads like a human editor cut it by hand.
 
-> Status: working end-to-end. CLI + browser editor both run. Single-clip caption flow is solid; a multi-clip timeline and code-graphic B-roll layer are in progress.
+> Personal tool, shared as-is. Everything runs locally; the only network calls are Gemini (text analysis) and Pexels (stock B-roll search).
 
----
+## What it does
 
-## How it works
+**AI, one click each:**
+- **Auto-arrange** — transcribes every take, orders them into a coherent story, groups retakes of the same line, suggests which duplicates to drop (you confirm)
+- **Autocut** — removes silence at the ends *and* long pauses inside every clip (jump-cuts)
+- **Generate Captions** — WhisperX word-level transcription → phrase-aware caption pages → Gemini picks the few words worth accenting. Re-running never overwrites your manual edits
+- **Auto B-roll** — Gemini finds the moments where a visual helps, prefers *your* uploaded footage, falls back to Pexels (with swappable alternatives)
 
-```
-video.mp4
-  │
-  1. transcript + word timecodes      WhisperX (or whisper.cpp fallback, no Python)
-  │
-  2. accent detection                 Gemini → which words deserve a highlight (sparingly)
-  │
-  3. caption placement                Gemini vision → per-scene zone (never over a face/UI)
-  │
-  4. compose + render                 Remotion: OffthreadVideo + caption track → mp4
-out.mp4
-```
+**Editor:**
+- Multi-clip timeline: drag to reorder, drag edges to trim, `S` to split at the playhead, waveforms on every clip
+- Click anything on the preview to select it; drag corner to resize, drag captions to reposition
+- **Keyframes** (CapCut-style flags) for smooth zoom/pan animation per clip
+- Per-clip speed (0.25–4×), volume, mute; music with volume/fade and **auto-ducking under voice**
+- Caption editing: text, accent words, position, size
+- Full undo/redo (⌘Z), autosave, multi-project library
+- Export mp4 (frame-accurate Remotion render)
 
-A single orchestrator (`scripts/pipeline.mjs`) runs steps 1–3 and writes `public/{meta,transcript,accents,placement}.json`. The Remotion composition (`src/CaptionedVideo.tsx`) reads those and burns captions over the clip.
+Captions, B-roll and keyframes are **anchored to clips** — reorder, trim, split or speed up a clip and everything moves with it.
 
-## Quick start
+## Setup
+
+Requirements: **Node 20+**, **ffmpeg** on PATH, **Python 3.10+** (for WhisperX).
 
 ```bash
 git clone <repo> && cd autobroll
 npm install
-echo "GEMINI_API_KEY=..." > .env
+
+# transcription (WhisperX — word-level timestamps)
+python3 -m venv .venv
+.venv/bin/pip install whisperx
+
+# API keys
+cp .env.example .env   # then paste your keys (both have free tiers)
 ```
 
-**Requirements:** `ffmpeg` on your PATH, a `GEMINI_API_KEY`. WhisperX (Python, in `.venv/`) is used if present for the most accurate word timing; otherwise it falls back to `whisper.cpp` (pure Node, no Python).
-
-### One-shot CLI
+## Run
 
 ```bash
-npx autobroll my-video.mp4 out.mp4
+npm start
 ```
 
-Transcribes → detects accents + placement → renders a captioned mp4.
+Open **http://localhost:5173** → drop your clips → Open editor.
 
-### Browser editor (recommended)
+A sensible flow: **Auto-arrange** → remove duplicate takes (banner) → **Autocut** → **Generate Captions** → **Auto B-roll** → polish → **Export mp4**.
 
-```bash
-npm run editor:server   # backend: import, render, project save  (:3333)
-npm run editor          # editor UI  (:5173)
+### Shortcuts
+
+| Key | Action |
+|---|---|
+| `Space` | play / pause |
+| `S` | split clip at playhead |
+| `⌘Z` / `⇧⌘Z` | undo / redo |
+
+## How it works
+
+```
+clips (mp4/mov…) ──► /api/add-clip      ffmpeg remux/encode + thumbnail
+                          │
+                 WhisperX per clip      word timestamps, cached per clip —
+                          │             arrange/captions/autocut share one transcription
+              Gemini (structured JSON)  order takes · pick accent words · plan B-roll
+                          │
+              Remotion composition      clips back-to-back + captions + B-roll +
+                          │             music (ducked) + keyframed transforms
+                  @remotion/player      live preview in the editor (same component)
+                  remotion render       frame-accurate mp4 export
 ```
 
-In the editor you can:
+- `editor/` — React app (Vite + Tailwind + zustand + @remotion/player)
+- `src/` — the Remotion composition (what the player previews *and* the renderer exports)
+- `server/` — small Node backend: projects, uploads, waveforms, AI jobs, render
+- `scripts/` — AI pipelines (transcribe/arrange/captions/B-roll/autocut) + `gemini.mjs` client
 
-- **Import a video** — drops it through the whole pipeline, no terminal
-- **Drag captions** vertically on the video to reposition
-- **Edit text** to fix transcription mistakes
-- **Retime** by dragging caption blocks / edges on the timeline
-- **Toggle accents** per word
-- **Undo / redo** (⌘Z / ⇧⌘Z) and **export** to mp4
-
-Edits autosave to `public/project.json`, so your work survives a reload.
-
-## Project layout
-
-| Path | What |
-|------|------|
-| `scripts/pipeline.mjs` | orchestrator: meta → transcribe → accents → placement |
-| `scripts/extract-meta.mjs` | ffprobe → `meta.json` (fps/size/duration) |
-| `scripts/transcribe-whisperx.sh`, `transcribe.mjs` | transcription (WhisperX / whisper.cpp) |
-| `scripts/detect-accents.mjs`, `detect-placement.mjs` | Gemini accent + placement passes |
-| `scripts/detect-broll.mjs`, `fetch-broll.mjs` | experimental B-roll planning/fetch |
-| `src/CaptionedVideo.tsx`, `CaptionTrack.tsx`, `captions.ts` | Remotion caption rendering |
-| `src/NumberCallout.tsx`, `Showcase.tsx` | animated stat callouts (graphic layer) |
-| `src/timeline.ts`, `MultiClipVideo.tsx` | multi-clip timeline model (in progress) |
-| `editor/` | Vite + React editor on top of `@remotion/player` |
-| `server/index.mjs` | import / render / project-save backend |
+Tip: set `AUTOBROLL_PROMPT` in `.env` with your topics/brand names — it biases transcription accuracy for your vocabulary.
 
 ## License
 

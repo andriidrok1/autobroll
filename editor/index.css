@@ -1,0 +1,51 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    margin: 0;
+    background: #131315;
+    color: #e5e1e4;
+    font-family: Inter, system-ui, sans-serif;
+  }
+}
+
+@layer utilities {
+  /* timeline ruler gridlines */
+  .timeline-grid {
+    background-image: linear-gradient(to right, #2c2c2e 1px, transparent 1px);
+    background-size: 40px 100%;
+  }
+  /* subtle top-down highlight on clip blocks */
+  .clip-gradient {
+    background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0) 100%);
+  }
+}
+
+/* thin pro-tool scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #464554;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #918f9f;
+}
+
+/* Material Symbols sizing */
+.material-symbols-outlined {
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  user-select: none;
+}
