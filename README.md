@@ -2,6 +2,8 @@
 
 An AI short-form video editor that runs in your browser. Drop in your raw takes — it listens to them, puts them in narrative order, cuts the silence, writes human-looking captions, finds B-roll, and lets you polish everything on a CapCut-style timeline. Export to mp4. Built on [Remotion](https://remotion.dev).
 
+![AutoBroll editor](docs/screenshot.png)
+
 Most AI caption tools lock subtitles to the bottom, highlight every other word, and slap a box behind them. AutoBroll is the opposite: sparing gold accents on the words that matter, captions placed where they don't cover your face, soft cross-dissolves — output that reads like a human editor cut it by hand.
 
 > Personal tool, shared as-is. Everything runs locally; the only network calls are Gemini (text analysis) and Pexels (stock B-roll search).

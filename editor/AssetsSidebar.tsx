@@ -121,7 +121,8 @@ export const AssetsSidebar: React.FC<{playerRef: React.RefObject<PlayerRef>}> = 
                   }`}
                 >
                   <img
-                    src={`/clips/thumbs/${clip.id}.jpg`}
+                    // thumbs exist per SOURCE file — autocut/split segments share it
+                    src={'/clips/thumbs/' + (clip.src.split('/').pop() ?? '').replace(/\.\w+$/, '.jpg')}
                     alt={clip.id}
                     className="aspect-video object-cover w-full opacity-80 group-hover:opacity-100 transition-opacity"
                   />

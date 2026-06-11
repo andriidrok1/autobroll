@@ -63,7 +63,8 @@ const server = createServer(async (req, res) => {
             name: p.name || 'Untitled project',
             clips: p.clips?.length || 0,
             updatedAt: p.updatedAt || null,
-            thumbClipId: p.clips?.[0]?.id || null,
+            // thumbs are stored per SOURCE file (segments share their source's thumb)
+            thumb: p.clips?.[0]?.src ? '/clips/thumbs/' + path.basename(p.clips[0].src).replace(/\.\w+$/, '.jpg') : null,
           };
         } catch {
           return null;

@@ -2,7 +2,7 @@ import React, {useRef, useState} from 'react';
 import {useEditor} from './store';
 import {clipDurationSec} from '../src/timeline';
 
-export type ProjectMeta = {id: string; name: string; clips: number; updatedAt: string | null; thumbClipId: string | null};
+export type ProjectMeta = {id: string; name: string; clips: number; updatedAt: string | null; thumb: string | null};
 
 const fmt = (s: number) => `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}`;
 const ago = (iso: string | null) => {
@@ -108,8 +108,8 @@ export const Start: React.FC<{
                   className="group relative text-left rounded-lg overflow-hidden border border-outline-variant/50 bg-surface-container-low hover:border-primary transition-all"
                 >
                   <div className="aspect-video bg-surface-container relative">
-                    {p.thumbClipId ? (
-                      <img src={`/clips/thumbs/${p.thumbClipId}.jpg`} alt="" className="w-full h-full object-cover" />
+                    {p.thumb ? (
+                      <img src={p.thumb} alt="" className="w-full h-full object-cover" />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center text-on-surface-variant/40">
                         <span className="material-symbols-outlined">movie</span>
