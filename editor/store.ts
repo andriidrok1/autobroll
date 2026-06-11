@@ -218,11 +218,21 @@ export const useEditor = create<EditorState>((set) => ({
       const byId = new Map(plan.map((p) => [p.id, p.segments]));
       const newClips: Clip[] = [];
       const remap: {origId: string; segId: string; inMs: number; outMs: number}[] = [];
+      // ids must stay unique across REPEATED autocuts (re-segmenting "X" must not
+      // mint another "X-c1" when one already exists)
+      const taken = new Set(s.clips.map((c) => c.id));
+      const uniq = (base: string) => {
+        let id = base;
+        let n = 1;
+        while (taken.has(id)) id = `${base}-c${n++}`;
+        taken.add(id);
+        return id;
+      };
       for (const c of s.clips) {
         const segs = byId.get(c.id);
         if (!segs || !segs.length) { newClips.push(c); continue; }
         segs.forEach((seg, k) => {
-          const id = k === 0 ? c.id : `${c.id}-c${k}`;
+          const id = k === 0 ? c.id : uniq(`${c.id}-c${k}`);
           newClips.push({...c, id, inSec: seg.inSec, outSec: seg.outSec});
           remap.push({origId: c.id, segId: id, inMs: seg.inSec * 1000, outMs: seg.outSec * 1000});
         });

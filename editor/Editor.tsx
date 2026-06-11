@@ -205,10 +205,21 @@ export const Editor: React.FC<{onBackToStart: () => void}> = ({onBackToStart}) =
         (s) => setGenLabel(`${s.label ?? ''} ${s.progress ?? 0}%`),
         async () => {
           const fresh = await fetch(`/captions.multi.json?_=${Date.now()}`).then((x) => x.json()).catch(() => []);
-          // MERGE: keep existing captions (incl. manual edits); only add for clips without any.
-          const have = new Set(captions.map((c) => c.clipId).filter(Boolean));
-          const added = (Array.isArray(fresh) ? fresh : []).filter((c) => c.clipId && !have.has(c.clipId));
-          const merged = [...captions, ...added].map((c, i) => ({...c, id: `c${i}`}));
+          // MERGE: keep existing captions (incl. manual edits) — but a clip only
+          // counts as "covered" if it has a VISIBLE caption (inside its trim
+          // window). Orphans (deleted clips) are dropped; out-of-window leftovers
+          // don't block fresh captions anymore.
+          const clipById = new Map(clips.map((c) => [c.id, c]));
+          const isVisible = (c: {clipId?: string; startMs: number; endMs: number}) => {
+            if (!c.clipId) return true; // legacy absolute caption — keep
+            const cl = clipById.get(c.clipId);
+            if (!cl) return false; // orphan
+            return c.startMs < cl.outSec * 1000 && c.endMs > cl.inSec * 1000;
+          };
+          const kept = captions.filter((c) => !c.clipId || clipById.has(c.clipId)); // drop orphans
+          const covered = new Set(kept.filter(isVisible).map((c) => c.clipId).filter(Boolean));
+          const added = (Array.isArray(fresh) ? fresh : []).filter((c) => c.clipId && !covered.has(c.clipId));
+          const merged = [...kept, ...added].map((c, i) => ({...c, id: `c${i}`}));
           pushHistory();
           setCaptions(merged);
           setGenerating(false);
