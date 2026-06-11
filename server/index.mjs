@@ -375,25 +375,44 @@ const server = createServer(async (req, res) => {
 
   // ---- E9: запустить рендер ----
   if (req.method === 'POST' && url.pathname === '/api/render') {
-    const props = await body(req); // {captions, accentColor}
+    const raw = await body(req); // {clips, music, captions, brolls, accentColor, draft?}
+    let draft = false;
+    try { draft = !!JSON.parse(raw).draft; } catch {}
     const id = String(Date.now());
     const propsFile = path.join(ROOT, `.props-${id}.json`);
-    const outName = `edited-${id}.mp4`;
+    const outName = `edited-${id}${draft ? '-draft' : ''}.mp4`;
     const outFile = path.join(EXPORTS, outName);
-    fs.writeFileSync(propsFile, props);
+    fs.writeFileSync(propsFile, raw);
     renders[id] = {status: 'running', progress: 0};
 
-    const child = spawn('npx', ['remotion', 'render', 'MultiClip', outFile, `--props=${propsFile}`], {cwd: ROOT});
+    // tuned for a many-core machine: higher concurrency + faster x264 preset +
+    // a big OffthreadVideo cache (lots of trimmed segments seek the sources a lot).
+    // Draft: half resolution + ultrafast — for quick checks, ~40% faster.
+    const args = [
+      'remotion', 'render', 'MultiClip', outFile, `--props=${propsFile}`,
+      '--concurrency=16',
+      `--x264-preset=${draft ? 'ultrafast' : 'veryfast'}`,
+      '--offthreadvideo-cache-size-in-bytes=4000000000',
+      ...(draft ? ['--scale=0.5'] : []),
+    ];
+    const child = spawn('npx', args, {cwd: ROOT});
+    let errTail = ''; // keep the tail of output so failures show a real message
     const onProgress = (d) => {
-      const m = String(d).match(/Rendered\s+(\d+)\/(\d+)/);
+      const s = String(d);
+      const m = s.match(/Rendered\s+(\d+)\/(\d+)/);
       if (m) renders[id].progress = Math.round((+m[1] / +m[2]) * 100);
+      errTail = (errTail + s).slice(-2000);
     };
     child.stdout.on('data', onProgress);
     child.stderr.on('data', onProgress);
     child.on('close', (code) => {
       fs.rmSync(propsFile, {force: true});
       if (code === 0) renders[id] = {status: 'done', progress: 100, file: `/exports/${outName}`};
-      else renders[id] = {status: 'error', error: `render exited ${code}`};
+      else {
+        const line = errTail.split('\n').reverse().find((l) => /error|Error/.test(l))?.trim().slice(0, 200);
+        console.error(`render ${id} failed:\n${errTail.slice(-1200)}`);
+        renders[id] = {status: 'error', error: line || `render exited ${code}`};
+      }
     });
     return json(res, 200, {jobId: id});
   }

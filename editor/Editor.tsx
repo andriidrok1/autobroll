@@ -174,10 +174,10 @@ export const Editor: React.FC<{onBackToStart: () => void}> = ({onBackToStart}) =
     );
   });
 
-  const exportVideo = async () => {
+  const exportVideo = async (draft = false) => {
     setExp({status: 'running', progress: 0});
     try {
-      const r = await fetch('/api/render', {method: 'POST', body: JSON.stringify({clips, music, captions, brolls, accentColor})}).then((x) => x.json());
+      const r = await fetch('/api/render', {method: 'POST', body: JSON.stringify({clips, music, captions, brolls, accentColor, draft})}).then((x) => x.json());
       pollJob(
         '/api/render', r.jobId,
         (s) => setExp({status: 'running', progress: s.progress ?? 0}),
@@ -488,7 +488,15 @@ export const Editor: React.FC<{onBackToStart: () => void}> = ({onBackToStart}) =
           {exp?.status === 'running' && <span className="text-body-sm text-on-surface-variant">Rendering… {exp.progress ?? 0}%</span>}
           {exp?.status === 'done' && exp.file && <a href={exp.file} download className="text-body-sm text-[#39d98a]">↓ Download mp4</a>}
           {exp?.status === 'error' && <span className="text-body-sm text-error">Render error</span>}
-          <button onClick={exportVideo} disabled={exp?.status === 'running'} className="bg-primary-container text-on-primary-container px-4 py-1.5 rounded-lg font-bold text-body-md hover:brightness-110 active:scale-95 disabled:opacity-40 transition-all">
+          <button
+            onClick={() => exportVideo(true)}
+            disabled={exp?.status === 'running'}
+            title="Half resolution, fastest encode — for a quick check (~40% faster)"
+            className="px-3 py-1.5 rounded-lg border border-outline-variant text-on-surface-variant hover:bg-surface-variant disabled:opacity-40 transition-colors text-body-md font-bold"
+          >
+            Draft
+          </button>
+          <button onClick={() => exportVideo(false)} disabled={exp?.status === 'running'} className="bg-primary-container text-on-primary-container px-4 py-1.5 rounded-lg font-bold text-body-md hover:brightness-110 active:scale-95 disabled:opacity-40 transition-all">
             Export mp4
           </button>
         </div>
