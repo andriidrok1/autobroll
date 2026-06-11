@@ -15,14 +15,16 @@ const CaptionPage: React.FC<{caption: Caption; accentColor: string; durationInFr
   const fontSize = Math.round(62 * (caption.scale ?? 1));
 
   // soft cross-dissolve: fade in at the start, fade out near the end so a page
-  // doesn't snap away the instant the last word is spoken
-  const inF = Math.round(fps * 0.14);
-  const outF = Math.round(fps * 0.18);
+  // doesn't snap away the instant the last word is spoken.
+  // Guarded for very short pages (1–2 frames after autocut/clip clamping) —
+  // interpolate() requires strictly increasing ranges.
+  const inF = Math.max(1, Math.min(Math.round(fps * 0.14), Math.floor(durationInFrames / 2)));
+  const outStart = Math.max(inF + 1, durationInFrames - Math.round(fps * 0.18));
   const appear = interpolate(frame, [0, inF], [0, 1], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'});
-  const disappear = interpolate(frame, [Math.max(inF, durationInFrames - outF), durationInFrames], [1, 0], {
-    extrapolateLeft: 'clamp',
-    extrapolateRight: 'clamp',
-  });
+  const disappear =
+    outStart >= durationInFrames
+      ? 1 // page too short for a fade-out
+      : interpolate(frame, [outStart, durationInFrames], [1, 0], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'});
   const opacity = appear * disappear;
 
   return (
