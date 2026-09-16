@@ -29,7 +29,7 @@ Captions, B-roll and keyframes are **anchored to clips** — reorder, trim, spli
 
 ## Setup
 
-Requirements: **Node 20+**, **ffmpeg** on PATH, **Python 3.10+** (for WhisperX).
+Requirements: **Node 20+**, **ffmpeg** on PATH, **Python 3.10+** (for WhisperX). An NVIDIA GPU is picked up automatically (float16); without one WhisperX runs on the CPU (int8).
 
 ```bash
 git clone <repo> && cd autobroll
@@ -82,6 +82,8 @@ clips (mp4/mov…) ──► /api/add-clip      ffmpeg remux/encode + thumbnail
 - `scripts/` — AI pipelines (transcribe/arrange/captions/B-roll/autocut) + `gemini.mjs` client
 
 Tip: set `AUTOBROLL_PROMPT` in `.env` with your topics/brand names — it biases transcription accuracy for your vocabulary.
+
+Transcription runs once per source file in a single WhisperX process (the model load dominates, so splitting/reordering clips never re-transcribes). Force a device with `AUTOBROLL_DEVICE=cpu` or `cuda` in `.env`; if a CUDA run fails it falls back to the CPU for that job.
 
 ## License
 

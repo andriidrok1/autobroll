@@ -142,7 +142,7 @@ function buildCaptions(words, accentIdx) {
 // --- run ---
 progress(2, 'Starting');
 const words = assembleWords(clips, (idx, total, clip) =>
-  progress(5 + Math.round((idx / total) * 75), `Transcribing ${clip.label ?? clip.id} (${idx + 1}/${total})`),
+  progress(5 + Math.round((idx / total) * 75), clip.batch ? clip.label : `Transcribing ${clip.label ?? clip.id} (${idx + 1}/${total})`),
 );
 progress(82, 'Detecting accents');
 const accents = await detectAccents(words);

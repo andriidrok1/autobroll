@@ -8,7 +8,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import {gemini} from './gemini.mjs';
-import {transcribeClip} from './lib-transcribe.mjs';
+import {transcribeClip, transcribeClips} from './lib-transcribe.mjs';
 
 const ROOT = process.cwd();
 const PUBLIC = path.join(ROOT, 'public');
@@ -18,6 +18,7 @@ const {clips} = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
 if (!clips?.length) { console.error('no clips'); process.exit(1); }
 
 progress(2, 'Starting');
+transcribeClips(clips, (label) => progress(5, label)); // one whisperx run for all uncached sources
 // transcribe each clip (populates the shared cache → captions reuse it)
 const texts = clips.map((clip, i) => {
   progress(5 + Math.round((i / clips.length) * 80), `Listening to ${clip.label ?? clip.id} (${i + 1}/${clips.length})`);

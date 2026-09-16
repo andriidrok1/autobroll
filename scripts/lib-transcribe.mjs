@@ -24,37 +24,44 @@ const PROMPT_BIAS =
   process.env.AUTOBROLL_PROMPT ||
   'The following is a clear English talking-head narration. Proper nouns, product names and brands are capitalized.';
 
-// Transcribe one source clip with WhisperX, cached per clip id. Word times are
-// relative to the clip's own start.
-export function transcribeClip(clip) {
-  fs.mkdirSync(TRANSCRIPTS, {recursive: true});
-  fs.mkdirSync(TMP, {recursive: true});
-  const cache = path.join(TRANSCRIPTS, `${clip.id}.json`);
-  if (fs.existsSync(cache)) return JSON.parse(fs.readFileSync(cache, 'utf8'));
+// ---- device selection ----
+// AUTOBROLL_DEVICE=cpu|cuda forces it; default "auto" asks torch once per process.
+// GPU: float16. CPU: int8. One whisperx process per BATCH (the model load is most
+// of the wall time, so 3 clips on the GPU take ~10 s instead of ~20 s on CPU).
+let DEVICE = null;
+function pickDevice() {
+  if (DEVICE) return DEVICE;
+  const forced = (process.env.AUTOBROLL_DEVICE || 'auto').toLowerCase();
+  if (forced === 'cpu' || forced === 'cuda') return (DEVICE = forced);
+  const probe = spawnSync('.venv/bin/python', ['-c', 'import torch;print(int(torch.cuda.is_available()))'], {cwd: ROOT});
+  DEVICE = probe.status === 0 && probe.stdout.toString().trim() === '1' ? 'cuda' : 'cpu';
+  return DEVICE;
+}
+const computeType = (device) => (device === 'cuda' ? 'float16' : 'int8');
 
-  const srcMp4 = path.join(PUBLIC, clip.src);
-  const wav = path.join(TMP, `${clip.id}.16k.wav`);
-  const ff = spawnSync('ffmpeg', ['-y', '-i', srcMp4, '-ar', '16000', '-ac', '1', wav], {cwd: ROOT});
-  if (ff.status !== 0) throw new Error(`ffmpeg failed for ${clip.id}`);
-
-  const outDir = path.join(TMP, clip.id);
-  fs.mkdirSync(outDir, {recursive: true});
-  const wx = spawnSync(
+function runWhisperx(wavs, outDir, device) {
+  return spawnSync(
     '.venv/bin/whisperx',
     [
       // 'medium' (multilingual, already cached) is noticeably more accurate than
       // small.en on accented English. --language en keeps it English-only.
-      wav, '--model', 'medium', '--language', 'en', '--device', 'cpu', '--compute_type', 'int8',
+      ...wavs, '--model', 'medium', '--language', 'en', '--device', device, '--compute_type', computeType(device),
       '--output_format', 'json', '--output_dir', outDir, '--vad_onset', '0.2', '--vad_offset', '0.2',
       '--initial_prompt', PROMPT_BIAS,
     ],
     {cwd: ROOT},
   );
-  if (wx.status !== 0) throw new Error(`whisperx failed for ${clip.id}: ${wx.stderr?.toString().slice(-300)}`);
+}
 
-  const data = JSON.parse(fs.readFileSync(path.join(outDir, `${clip.id}.16k.json`), 'utf8'));
+// Word times are relative to the SOURCE file, so the cache is keyed by source:
+// autocut segments and re-arranged copies of the same take never re-transcribe.
+const sourceKey = (clip) => path.basename(clip.src).replace(/\.[^.]+$/, '');
+const cacheFile = (clip) => path.join(TRANSCRIPTS, `${sourceKey(clip)}.json`);
+
+function parseWhisperxJson(file) {
+  const data = JSON.parse(fs.readFileSync(file, 'utf8'));
   const raw = data.segments.flatMap((s) => s.words ?? []);
-  const words = raw
+  return raw
     .map((w, i) => {
       let start = w.start;
       let end = w.end;
@@ -69,14 +76,60 @@ export function transcribeClip(clip) {
       return {word: String(w.word).trim(), startMs: Math.round(start * 1000), endMs: Math.round(end * 1000)};
     })
     .filter((w) => w.word.length > 0);
+}
 
-  fs.writeFileSync(cache, JSON.stringify(words, null, 2));
-  return words;
+// Transcribe every not-yet-cached source among `clips` in ONE whisperx run.
+// onBatch(label) is called once before the run (for progress UI).
+export function transcribeClips(clips, onBatch) {
+  fs.mkdirSync(TRANSCRIPTS, {recursive: true});
+  fs.mkdirSync(TMP, {recursive: true});
+  const pending = new Map(); // key -> clip
+  for (const c of clips) if (!fs.existsSync(cacheFile(c))) pending.set(sourceKey(c), c);
+  if (!pending.size) return;
+
+  const wavs = [];
+  for (const [key, clip] of pending) {
+    const wav = path.join(TMP, `${key}.16k.wav`);
+    const ff = spawnSync('ffmpeg', ['-y', '-i', path.join(PUBLIC, clip.src), '-ar', '16000', '-ac', '1', wav], {cwd: ROOT});
+    if (ff.status !== 0) console.error(`ffmpeg failed for ${key}`);
+    else wavs.push(wav);
+  }
+  if (!wavs.length) return;
+
+  let device = pickDevice();
+  onBatch?.(`Transcribing ${wavs.length} clip${wavs.length === 1 ? '' : 's'} (${device === 'cuda' ? 'GPU' : 'CPU'})`);
+  const outDir = path.join(TMP, `batch-${Date.now()}`);
+  fs.mkdirSync(outDir, {recursive: true});
+  let wx = runWhisperx(wavs, outDir, device);
+  if (wx.status !== 0 && device === 'cuda') {
+    // e.g. CUDA out of memory / driver mismatch → fall back for this process
+    console.error(`whisperx on cuda failed (${wx.stderr?.toString().trim().split('\n').pop()?.slice(0, 160)}); retrying on cpu`);
+    DEVICE = device = 'cpu';
+    onBatch?.(`Transcribing ${wavs.length} clip${wavs.length === 1 ? '' : 's'} (CPU fallback)`);
+    wx = runWhisperx(wavs, outDir, device);
+  }
+  if (wx.status !== 0) throw new Error(`whisperx failed: ${wx.stderr?.toString().slice(-300)}`);
+
+  for (const key of pending.keys()) {
+    const out = path.join(outDir, `${key}.16k.json`);
+    if (!fs.existsSync(out)) continue; // ffmpeg failed for this one → transcribeClip will throw
+    fs.writeFileSync(path.join(TRANSCRIPTS, `${key}.json`), JSON.stringify(parseWhisperxJson(out), null, 2));
+  }
+}
+
+// Words for one clip (source-relative times). Uses the cache; transcribes on miss.
+export function transcribeClip(clip) {
+  const cache = cacheFile(clip);
+  if (!fs.existsSync(cache)) transcribeClips([clip]);
+  if (!fs.existsSync(cache)) throw new Error(`transcription failed for ${clip.id}`);
+  return JSON.parse(fs.readFileSync(cache, 'utf8'));
 }
 
 // Assemble all clips' words onto the timeline, honoring trim (in/out) and order.
 // onProgress(idx, total, clip) is called before each clip is transcribed.
 export function assembleWords(clips, onProgress) {
+  // one whisperx run for everything not cached yet
+  transcribeClips(clips, (label) => onProgress?.(0, clips.length, {id: label, label, batch: true}));
   const out = [];
   let offsetMs = 0;
   clips.forEach((clip, idx) => {

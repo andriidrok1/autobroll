@@ -34,7 +34,7 @@ if (!clips?.length) { console.error('no clips'); process.exit(1); }
 
 progress(2, 'Starting');
 const words = assembleWords(clips, (idx, total, clip) =>
-  progress(3 + Math.round((idx / total) * 45), `Transcribing ${clip.label ?? clip.id} (${idx + 1}/${total})`),
+  progress(3 + Math.round((idx / total) * 45), clip.batch ? clip.label : `Transcribing ${clip.label ?? clip.id} (${idx + 1}/${total})`),
 );
 const indexed = words.map((w, i) => `${i}:${w.word}`).join(' ');
 
