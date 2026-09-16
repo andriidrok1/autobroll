@@ -102,10 +102,13 @@ export const Start: React.FC<{
             <h2 className="text-label-bold font-label-bold uppercase tracking-wider text-on-surface-variant mb-3">Recent projects</h2>
             <div className="grid grid-cols-3 gap-3">
               {projects.map((p) => (
-                <button
+                <div
                   key={p.id}
+                  role="button"
+                  tabIndex={0}
                   onClick={() => onOpen(p.id)}
-                  className="group relative text-left rounded-lg overflow-hidden border border-outline-variant/50 bg-surface-container-low hover:border-primary transition-all"
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(p.id); } }}
+                  className="group relative text-left rounded-lg overflow-hidden border border-outline-variant/50 bg-surface-container-low hover:border-primary transition-all cursor-pointer"
                 >
                   <div className="aspect-video bg-surface-container relative">
                     {p.thumb ? (
@@ -127,7 +130,7 @@ export const Start: React.FC<{
                     <p className="text-body-sm font-medium truncate">{p.name}</p>
                     <p className="text-[11px] text-on-surface-variant">{p.clips} clip{p.clips === 1 ? '' : 's'} · {ago(p.updatedAt)}</p>
                   </div>
-                </button>
+                </div>
               ))}
             </div>
           </div>

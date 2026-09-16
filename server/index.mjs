@@ -48,6 +48,40 @@ const json = (res, code, obj) => {
   res.end(JSON.stringify(obj));
 };
 
+// download remote B-roll srcs into public/broll/ and rewrite props in place
+const BROLL_DIR = path.join(PUBLIC, 'broll');
+async function localizeRemoteBrolls(props) {
+  const items = Array.isArray(props?.brolls) ? props.brolls : [];
+  fs.mkdirSync(BROLL_DIR, {recursive: true});
+  for (const b of items) {
+    if (!/^https?:\/\//.test(b.src ?? '')) continue;
+    const ext = b.kind === 'video' ? 'mp4' : (b.src.match(/\.(jpe?g|png|webp)(\?|$)/i)?.[1] ?? 'jpg');
+    const name = `px-${Buffer.from(b.src).toString('base64url').slice(-24).replace(/[^\w-]/g, '')}.${ext}`;
+    const file = path.join(BROLL_DIR, name);
+    if (!fs.existsSync(file) || fs.statSync(file).size === 0) {
+      const r = await fetch(b.src);
+      if (!r.ok) throw new Error(`B-roll download ${r.status}: ${b.src}`);
+      const tmp = file + '.part';
+      fs.writeFileSync(tmp, Buffer.from(await r.arrayBuffer()));
+      if (ext === 'mp4') {
+        // Remotion's compositor fails on 4K sources ("Could not extract frame ...
+        // Request closed"); the output is 1080x1920 anyway, so cap the height.
+        const probe = await run('ffprobe', ['-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=height', '-of', 'csv=p=0', tmp]);
+        const h = parseInt(probe.stdout, 10) || 0;
+        if (h > 1920) {
+          const small = file + '.small.mp4';
+          const enc = await run('ffmpeg', ['-y', '-i', tmp, '-vf', 'scale=-2:1920', '-c:v', 'libx264', '-preset', 'veryfast',
+            '-crf', '20', '-pix_fmt', 'yuv420p', '-an', '-movflags', '+faststart', small]);
+          if (enc.code !== 0) throw new Error(`B-roll downscale failed: ${enc.stderr.slice(-200)}`);
+          fs.rmSync(tmp, {force: true});
+          fs.renameSync(small, file);
+        } else fs.renameSync(tmp, file);
+      } else fs.renameSync(tmp, file);
+    }
+    b.src = `broll/${name}`;
+  }
+}
+
 const server = createServer(async (req, res) => {
   const url = new URL(req.url, 'http://localhost');
 
@@ -376,9 +410,19 @@ const server = createServer(async (req, res) => {
 
   // ---- E9: запустить рендер ----
   if (req.method === 'POST' && url.pathname === '/api/render') {
-    const raw = await body(req); // {clips, music, captions, brolls, accentColor, draft?}
+    let raw = await body(req); // {clips, music, captions, brolls, accentColor, draft?}
     let draft = false;
-    try { draft = !!JSON.parse(raw).draft; } catch {}
+    try {
+      const props = JSON.parse(raw);
+      draft = !!props.draft;
+      // Remote (Pexels) B-roll is fetched by headless Chrome during the render and
+      // that fetch was failing mid-way on big files. Download every remote asset
+      // once into public/broll/ and render from disk instead.
+      await localizeRemoteBrolls(props);
+      raw = JSON.stringify(props);
+    } catch (e) {
+      console.error('render: could not prepare props:', e);
+    }
     const id = String(Date.now());
     const propsFile = path.join(ROOT, `.props-${id}.json`);
     const outName = `edited-${id}${draft ? '-draft' : ''}.mp4`;

@@ -113,9 +113,15 @@ async function searchPexels(query, kind) {
   try {
     const d = await fetch(url, {headers}).then((r) => r.json());
     if (kind === 'video') {
-      return (d.videos ?? []).map((v) =>
-        (v.video_files ?? []).filter((f) => f.file_type === 'video/mp4').sort((a, b) => (b.height || 0) - (a.height || 0))[0]?.link,
-      ).filter(Boolean);
+      // Output is 1080x1920, so take the smallest mp4 that is at least that tall
+      // (usually the 1080p file, ~7 MB) instead of the 4K one (~30-100 MB): remote 4K
+      // streams were failing mid-render and bloated the preview.
+      return (d.videos ?? []).map((v) => {
+        const files = (v.video_files ?? []).filter((f) => f.file_type === 'video/mp4' && f.height);
+        const tall = files.filter((f) => f.height >= 1920).sort((a, b) => a.height - b.height);
+        const pick = tall[0] ?? files.sort((a, b) => b.height - a.height)[0];
+        return pick?.link;
+      }).filter(Boolean);
     }
     return (d.photos ?? []).map((p) => p.src?.large2x || p.src?.large).filter(Boolean);
   } catch {
