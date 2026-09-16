@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.0 — 2026-09-16
+
+**New: Claude can edit your video.** `mcp/server.mjs` is an MCP server with 24 tools over the project model and the AI pipelines — clips (trim, split, reorder, speed, keyframes), captions (text, accents, position, size), B-roll (Pexels search, add, move, mode), music, `run_ai_step`, `render`, and `frame_at` so Claude can look at a source or rendered frame. Register with `claude mcp add`; `.mcp.json` covers Claude Code inside the repo. The browser editor polls the project file and reloads live when Claude saves it.
+
 ## 0.3.0 — 2026-09-16
 
 **Fixed**

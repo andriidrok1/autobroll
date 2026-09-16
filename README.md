@@ -71,6 +71,22 @@ A sensible flow: **Auto-arrange** → remove duplicate takes (banner) → **Auto
 | `S` | split clip at playhead |
 | `⌘Z` / `⇧⌘Z` | undo / redo |
 
+## Drive it from Claude (MCP)
+
+AutoBroll ships an [MCP](https://modelcontextprotocol.io) server, so Claude Code or Claude Desktop can edit a project by talking: *"cut the pause at 0:12, make the caption about YC bigger and move the B-roll to an inset, then render a draft"*.
+
+```bash
+# Claude Code — once, from anywhere:
+claude mcp add --scope user autobroll -- node /absolute/path/to/autobroll/mcp/server.mjs
+# (inside the repo, Claude Code also picks up .mcp.json automatically)
+```
+
+Keep `npm start` running for the AI steps and rendering; pure edits work even with it down. The browser editor reloads the project live whenever Claude saves it, so you can watch the timeline change.
+
+24 tools: `list_projects` · `get_project` · `duplicate_project` · `add_clips` · `reorder_clips` · `trim_clip` · `split_clip` · `set_clip` (speed/volume/mute) · `set_keyframes` · `delete_clips` · `edit_caption` · `add_caption` · `delete_captions` · `search_stock` (Pexels) · `add_broll` · `edit_broll` · `delete_brolls` · `set_music` · `set_accent_color` · `rename_project` · `run_ai_step` (arrange / autocut / captions / broll) · `render` · `frame_at` (Claude looks at a source or rendered frame) · `health`.
+
+Claude works from the transcript, timings and metadata (`get_project`), and can look at individual frames with `frame_at`; it does not watch the video. Last write wins if you and Claude edit the same project at the same moment.
+
 ## How it works
 
 ```
@@ -90,6 +106,7 @@ clips (mp4/mov…) ──► /api/add-clip      ffmpeg remux/encode + thumbnail
 - `src/` — the Remotion composition (what the player previews *and* the renderer exports)
 - `server/` — small Node backend: projects, uploads, waveforms, AI jobs, render
 - `scripts/` — AI pipelines (transcribe/arrange/captions/B-roll/autocut) + `gemini.mjs` client
+- `mcp/` — MCP server (stdio) exposing the project model and the pipelines to Claude
 
 Face-aware placement sends one 540px frame per source clip to Gemini (`AUTOBROLL_FACE_AWARE=0` turns it off; you can always drag a caption).
 

@@ -57,6 +57,8 @@ function pollJob(
   }, 1500);
 }
 
+const META_RELOAD = {durationInFrames: 1, fps: 30, width: 1080, height: 1920};
+
 export const Editor: React.FC<{onBackToStart: () => void}> = ({onBackToStart}) => {
   const {
     meta, projectId, projectName, clips, music, captions, brolls, accentColor, selectedId, currentFrame, past, future,
@@ -94,16 +96,42 @@ export const Editor: React.FC<{onBackToStart: () => void}> = ({onBackToStart}) =
   // autosave the whole project to its own file (debounced). Note: no clips.length
   // guard — deleting the last clip must persist too (init() nulls projectId, so a
   // freshly cleared state never overwrites another project).
+  const lastSeenUpdate = useRef<string | null>(null); // updatedAt we wrote or loaded — anything newer came from outside
   useEffect(() => {
     if (!meta || !projectId) return;
     const t = setTimeout(() => {
       fetch('/api/projects/' + projectId, {
         method: 'POST',
         body: JSON.stringify({name: projectName, clips, music, captions, brolls, brollAssets, accentColor}),
-      }).catch(() => {});
+      })
+        .then((r) => r.json())
+        .then((x) => { if (x?.updatedAt) lastSeenUpdate.current = x.updatedAt; })
+        .catch(() => {});
     }, 600);
     return () => clearTimeout(t);
   }, [meta, projectId, projectName, clips, music, captions, brolls, brollAssets, accentColor]);
+
+  // Live reload: the MCP server (Claude) writes the same project file. Poll its
+  // updatedAt and pull the new state in when someone else saved it.
+  useEffect(() => {
+    if (!projectId) return;
+    lastSeenUpdate.current = null;
+    const iv = setInterval(async () => {
+      try {
+        const p = await fetch('/api/projects/' + projectId).then((r) => (r.ok ? r.json() : null));
+        if (!p?.updatedAt) return;
+        if (lastSeenUpdate.current === null) { lastSeenUpdate.current = p.updatedAt; return; } // first tick = baseline
+        if (p.updatedAt <= lastSeenUpdate.current) return;
+        lastSeenUpdate.current = p.updatedAt;
+        const st = useEditor.getState();
+        st.init(META_RELOAD, p.captions ?? [], p.accentColor, p.clips ?? [], p.music ?? null, p.brolls ?? [], p.brollAssets ?? []);
+        st.setProjectInfo(projectId, p.name || 'Untitled project');
+        notify('Project updated from outside (Claude)', 'ok');
+      } catch { /* backend hiccup — try again next tick */ }
+    }, 2000);
+    return () => clearInterval(iv);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId]);
 
   // undo/redo keyboard (not while typing)
   useEffect(() => {
