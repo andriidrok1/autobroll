@@ -2,7 +2,9 @@
 
 An AI short-form video editor that runs in your browser. Drop in your raw takes — it listens to them, puts them in narrative order, cuts the silence, writes human-looking captions, finds B-roll, and lets you polish everything on a CapCut-style timeline. Export to mp4. Built on [Remotion](https://remotion.dev).
 
-![AutoBroll editor](docs/screenshot.png)
+![AutoBroll: three raw takes → arranged, cut, captioned and B-rolled](docs/demo.gif)
+
+*Real session, unedited apart from trimming the waits: three raw takes dropped in, then Auto-arrange → Autocut → Generate Captions → Auto B-roll → play. About 90 seconds end to end on a laptop GPU.*
 
 Most AI caption tools lock subtitles to the bottom, highlight every other word, and slap a box behind them. AutoBroll is the opposite: sparing gold accents on the words that matter, captions placed where they don't cover your face, soft cross-dissolves — output that reads like a human editor cut it by hand.
 
@@ -17,6 +19,9 @@ Most AI caption tools lock subtitles to the bottom, highlight every other word, 
 - **Auto B-roll** — Gemini finds the moments where a visual helps, prefers *your* uploaded footage, falls back to Pexels (with swappable alternatives)
 
 **Editor:**
+
+![AutoBroll editor](docs/screenshot.png)
+
 - Multi-clip timeline: drag to reorder, drag edges to trim, `S` to split at the playhead, waveforms on every clip
 - Click anything on the preview to select it; drag corner to resize, drag captions to reposition
 - **Keyframes** (CapCut-style flags) for smooth zoom/pan animation per clip
