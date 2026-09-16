@@ -1,6 +1,6 @@
 {
   "name": "autobroll",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "AI short-form video editor in the browser: auto-arrange takes, cut silence, human-looking captions, auto B-roll, keyframed zoom/pan — built on Remotion.",
   "license": "MIT",
   "private": true,
@@ -14,8 +14,12 @@
     "short-form",
     "video-editing"
   ],
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "start": "node scripts/dev.mjs",
+    "setup": "bash scripts/setup.sh",
     "editor": "vite",
     "editor:server": "node server/index.mjs",
     "studio": "remotion studio",

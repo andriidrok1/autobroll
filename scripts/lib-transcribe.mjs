@@ -96,6 +96,9 @@ export function transcribeClips(clips, onBatch) {
   }
   if (!wavs.length) return;
 
+  if (!fs.existsSync(path.join(ROOT, '.venv', 'bin', 'whisperx'))) {
+    throw new Error('WhisperX is not installed (.venv/bin/whisperx missing) — run `npm run setup`');
+  }
   let device = pickDevice();
   onBatch?.(`Transcribing ${wavs.length} clip${wavs.length === 1 ? '' : 's'} (${device === 'cuda' ? 'GPU' : 'CPU'})`);
   const outDir = path.join(TMP, `batch-${Date.now()}`);
@@ -108,7 +111,11 @@ export function transcribeClips(clips, onBatch) {
     onBatch?.(`Transcribing ${wavs.length} clip${wavs.length === 1 ? '' : 's'} (CPU fallback)`);
     wx = runWhisperx(wavs, outDir, device);
   }
-  if (wx.status !== 0) throw new Error(`whisperx failed: ${wx.stderr?.toString().slice(-300)}`);
+  if (wx.error) throw new Error(`whisperx could not start: ${wx.error.message}`);
+  if (wx.status !== 0) {
+    const tail = (wx.stderr?.toString() || wx.stdout?.toString() || '').trim().split('\n').filter(Boolean).slice(-3).join(' | ');
+    throw new Error(`whisperx failed (exit ${wx.status}): ${tail.slice(-300) || 'no output'}`);
+  }
 
   for (const key of pending.keys()) {
     const out = path.join(outDir, `${key}.16k.json`);

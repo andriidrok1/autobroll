@@ -15,7 +15,7 @@ Most AI caption tools lock subtitles to the bottom, highlight every other word, 
 **AI, one click each:**
 - **Auto-arrange** — transcribes every take, orders them into a coherent story, groups retakes of the same line, suggests which duplicates to drop (you confirm)
 - **Autocut** — removes silence at the ends *and* long pauses inside every clip (jump-cuts)
-- **Generate Captions** — WhisperX word-level transcription → phrase-aware caption pages → Gemini picks the few words worth accenting. Re-running never overwrites your manual edits
+- **Generate Captions** — WhisperX word-level transcription → phrase-aware caption pages → Gemini picks the few words worth accenting and looks at one frame per clip to place the block under your chin instead of over your mouth. Re-running never overwrites your manual edits
 - **Auto B-roll** — Gemini finds the moments where a visual helps, prefers *your* uploaded footage, falls back to Pexels (with swappable alternatives)
 
 **Editor:**
@@ -37,16 +37,21 @@ Captions, B-roll and keyframes are **anchored to clips** — reorder, trim, spli
 Requirements: **Node 20+**, **ffmpeg** on PATH, **Python 3.10+** (for WhisperX). An NVIDIA GPU is picked up automatically (float16); without one WhisperX runs on the CPU (int8).
 
 ```bash
-git clone <repo> && cd autobroll
-npm install
-
-# transcription (WhisperX — word-level timestamps)
-python3 -m venv .venv
-.venv/bin/pip install whisperx
-
-# API keys
-cp .env.example .env   # then paste your keys (both have free tiers)
+git clone https://github.com/andriidrok1/autobroll && cd autobroll
+npm run setup          # checks tools, creates the WhisperX venv, seeds .env
+# npm run setup -- --cpu   ← CPU-only torch (~1 GB instead of ~7 GB) if you have no NVIDIA GPU
 ```
+
+Then paste your keys into `.env` (both have free tiers): `GEMINI_API_KEY` from [aistudio.google.com/apikey](https://aistudio.google.com/apikey), `PEXELS_API_KEY` from [pexels.com/api](https://www.pexels.com/api/). The Start screen tells you if anything is still missing.
+
+<details><summary>Manual setup</summary>
+
+```bash
+npm install
+python3 -m venv .venv && .venv/bin/pip install whisperx
+cp .env.example .env
+```
+</details>
 
 ## Run
 
@@ -85,6 +90,8 @@ clips (mp4/mov…) ──► /api/add-clip      ffmpeg remux/encode + thumbnail
 - `src/` — the Remotion composition (what the player previews *and* the renderer exports)
 - `server/` — small Node backend: projects, uploads, waveforms, AI jobs, render
 - `scripts/` — AI pipelines (transcribe/arrange/captions/B-roll/autocut) + `gemini.mjs` client
+
+Face-aware placement sends one 540px frame per source clip to Gemini (`AUTOBROLL_FACE_AWARE=0` turns it off; you can always drag a caption).
 
 Tip: set `AUTOBROLL_PROMPT` in `.env` with your topics/brand names — it biases transcription accuracy for your vocabulary.
 

@@ -6,10 +6,12 @@
 //   broll      — Gemini detect → own assets / Pexels (job)
 //   arrange    — transcribe → Gemini orders clips (job)
 //   render     — export the MultiClip composition to mp4 (job)
+//   health     — environment checks for the Start screen (ffmpeg, WhisperX, keys)
 import {createServer} from 'node:http';
 import {spawn} from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
+import os from 'node:os';
 
 // run a command async, resolve {code, stdout, stderr}
 const run = (cmd, args, opts = {}) =>
@@ -48,6 +50,63 @@ const json = (res, code, obj) => {
   res.end(JSON.stringify(obj));
 };
 
+const JOBS = {
+  '/api/captions': {route: '/api/captions', name: 'Captions', prefix: 'clips', script: 'scripts/captions-multiclip.mjs', store: captionJobs},
+  '/api/trim-silence': {route: '/api/trim-silence', name: 'Autocut', prefix: 'trim', script: 'scripts/trim-silence.mjs', store: trimJobs},
+  '/api/arrange': {route: '/api/arrange', name: 'Auto-arrange', prefix: 'arrange', script: 'scripts/arrange-clips.mjs', store: arrangeJobs},
+  '/api/broll': {route: '/api/broll', name: 'B-roll', prefix: 'broll', script: 'scripts/broll-multiclip.mjs', store: brollJobs},
+};
+
+// Turn a stderr tail into one line a user can act on.
+function explainFailure(tail, fallback) {
+  const lines = tail.split('\n').map((l) => l.trim()).filter(Boolean).filter((l) => !/^PROGRESS:/.test(l));
+  const known = [
+    [/GEMINI_API_KEY not found/i, 'GEMINI_API_KEY is missing — add it to .env (free key: aistudio.google.com/apikey)'],
+    [/Gemini 4(00|03)/i, 'Gemini rejected the API key — check GEMINI_API_KEY in .env'],
+    [/Gemini (503|429)/i, 'Gemini is overloaded right now (503/429) — retry in a minute'],
+    [/WhisperX is not installed|whisperx could not start|spawnSync \.venv\/bin\/whisperx/i, 'WhisperX is not installed — run `npm run setup` (creates .venv and installs whisperx)'],
+    [/whisperx failed \(exit/i, null], // keep the script's own message (has the real whisperx error)
+    [/ffmpeg.*(ENOENT|not found)|spawnSync ffmpeg/i, 'ffmpeg is not on PATH — install it (apt install ffmpeg / brew install ffmpeg)'],
+    [/CUDA out of memory/i, 'GPU ran out of memory — set AUTOBROLL_DEVICE=cpu in .env'],
+    [/no clips/i, 'No clips on the timeline'],
+  ];
+  for (const l of lines) for (const [re, msg] of known) if (re.test(l)) return msg ?? l.replace(/^.*?Error: /, '').slice(0, 220);
+  const meaningful = [...lines].reverse().find((l) => /error|failed|exception|traceback|not found|denied/i.test(l));
+  return (meaningful || lines.at(-1) || fallback).replace(/\s+/g, ' ').slice(0, 220);
+}
+
+// ---- environment health (Start screen shows what is missing) ----
+function readEnvFile() {
+  const out = {};
+  try {
+    for (const line of fs.readFileSync(path.join(ROOT, '.env'), 'utf8').split('\n')) {
+      const m = line.match(/^([A-Z_]+)=(.*)$/);
+      if (m) out[m[1]] = m[2].trim();
+    }
+  } catch {}
+  return out;
+}
+let gpuProbe = null; // resolved once: 'cuda' | 'cpu' | null (no venv)
+async function health() {
+  const env = {...readEnvFile(), ...process.env};
+  const ff = await run('ffmpeg', ['-version']);
+  const fp = await run('ffprobe', ['-version']);
+  const venv = fs.existsSync(path.join(ROOT, '.venv', 'bin', 'whisperx'));
+  if (venv && gpuProbe === null) {
+    const r = await run('.venv/bin/python', ['-c', 'import torch;print("cuda" if torch.cuda.is_available() else "cpu")']);
+    gpuProbe = r.code === 0 ? r.stdout.trim() : 'cpu';
+  }
+  const forced = (env.AUTOBROLL_DEVICE || '').toLowerCase();
+  const checks = [
+    {id: 'node', ok: +process.versions.node.split('.')[0] >= 20, label: `Node ${process.versions.node}`, hint: 'Node 20 or newer is required'},
+    {id: 'ffmpeg', ok: ff.code === 0 && fp.code === 0, label: ff.code === 0 ? `ffmpeg ${ff.stdout.match(/version (\S+)/)?.[1] ?? ''}` : 'ffmpeg', hint: 'Install ffmpeg (apt install ffmpeg / brew install ffmpeg) — needed for uploads, waveforms, exports'},
+    {id: 'whisperx', ok: venv, label: venv ? `WhisperX (${forced || gpuProbe || 'cpu'})` : 'WhisperX', hint: 'Run `npm run setup` to create .venv and install WhisperX — needed for captions, autocut, arrange'},
+    {id: 'gemini', ok: !!env.GEMINI_API_KEY, label: 'Gemini API key', hint: 'Add GEMINI_API_KEY to .env (free: aistudio.google.com/apikey) — needed for arrange, accents, B-roll'},
+    {id: 'pexels', ok: !!env.PEXELS_API_KEY, label: 'Pexels API key', hint: 'Add PEXELS_API_KEY to .env (free: pexels.com/api) — optional, Auto B-roll falls back to your own footage only', optional: true},
+  ];
+  return {ok: checks.every((c) => c.ok || c.optional), checks};
+}
+
 // download remote B-roll srcs into public/broll/ and rewrite props in place
 const BROLL_DIR = path.join(PUBLIC, 'broll');
 async function localizeRemoteBrolls(props) {
@@ -84,6 +143,8 @@ async function localizeRemoteBrolls(props) {
 
 const server = createServer(async (req, res) => {
   const url = new URL(req.url, 'http://localhost');
+
+  if (req.method === 'GET' && url.pathname === '/api/health') return json(res, 200, await health());
 
   // ---- multi-project library ----
   if (req.method === 'GET' && url.pathname === '/api/projects') {
@@ -303,109 +364,41 @@ const server = createServer(async (req, res) => {
     return;
   }
 
-  // ---- generate captions for the current cut (per-clip WhisperX → accents) ----
-  if (req.method === 'POST' && url.pathname === '/api/captions') {
+  // ---- AI jobs: captions / autocut / arrange / B-roll ----
+  // Each spawns one pipeline script with the request body as its input file and
+  // relays PROGRESS lines; on failure the LAST meaningful stderr line is returned
+  // to the UI instead of "see server logs".
+  const job = JOBS[url.pathname];
+  if (req.method === 'POST' && job) {
     const id = String(Date.now());
-    const clipsFile = path.join(ROOT, `.clips-${id}.json`);
-    fs.writeFileSync(clipsFile, await body(req)); // {clips:[...]}
-    captionJobs[id] = {status: 'running', progress: 0, label: 'Starting'};
-
-    const child = spawn('node', ['scripts/captions-multiclip.mjs', clipsFile], {cwd: ROOT, env: process.env});
+    const inFile = path.join(ROOT, `.${job.prefix}-${id}.json`);
+    fs.writeFileSync(inFile, await body(req));
+    job.store[id] = {status: 'running', progress: 0, label: 'Starting'};
+    const child = spawn('node', [job.script, inFile], {cwd: ROOT, env: process.env});
+    let errTail = '';
     const onChunk = (d) => {
       for (const m of String(d).matchAll(/PROGRESS:(\d+):([^\n]+)/g)) {
-        captionJobs[id] = {status: 'running', progress: +m[1], label: m[2].trim()};
+        job.store[id] = {status: 'running', progress: +m[1], label: m[2].trim()};
       }
     };
     child.stdout.on('data', onChunk);
     child.stderr.on('data', (d) => {
       onChunk(d);
-      process.stderr.write(d); // surface whisper/gemini errors in server logs
+      errTail = (errTail + d).slice(-4000);
+      process.stderr.write(d);
     });
-    child.on('close', (code) => {
-      fs.rmSync(clipsFile, {force: true});
-      if (code === 0) captionJobs[id] = {status: 'done', progress: 100, label: 'Ready'};
-      else captionJobs[id] = {status: 'error', error: `captions exited ${code} (see server logs)`};
-    });
-    return json(res, 200, {jobId: id});
-  }
-  if (req.method === 'GET' && url.pathname.startsWith('/api/captions/')) {
-    const id = url.pathname.split('/').pop();
-    return json(res, 200, captionJobs[id] ?? {status: 'unknown'});
-  }
-
-  // ---- auto-trim leading/trailing silence per clip (uses cached transcripts) ----
-  if (req.method === 'POST' && url.pathname === '/api/trim-silence') {
-    const id = String(Date.now());
-    const inFile = path.join(ROOT, `.trim-${id}.json`);
-    fs.writeFileSync(inFile, await body(req));
-    trimJobs[id] = {status: 'running', progress: 0, label: 'Starting'};
-    const child = spawn('node', ['scripts/trim-silence.mjs', inFile], {cwd: ROOT, env: process.env});
-    const onChunk = (d) => {
-      for (const m of String(d).matchAll(/PROGRESS:(\d+):([^\n]+)/g)) {
-        trimJobs[id] = {status: 'running', progress: +m[1], label: m[2].trim()};
-      }
-    };
-    child.stdout.on('data', onChunk);
-    child.stderr.on('data', (d) => { onChunk(d); process.stderr.write(d); });
     child.on('close', (code) => {
       fs.rmSync(inFile, {force: true});
-      trimJobs[id] = code === 0 ? {status: 'done', progress: 100, label: 'Ready'} : {status: 'error', error: `trim exited ${code}`};
+      job.store[id] = code === 0
+        ? {status: 'done', progress: 100, label: 'Ready'}
+        : {status: 'error', error: explainFailure(errTail, `${job.name} exited ${code}`)};
     });
     return json(res, 200, {jobId: id});
   }
-  if (req.method === 'GET' && url.pathname.startsWith('/api/trim-silence/')) {
+  const statusJob = Object.values(JOBS).find((j) => url.pathname.startsWith(j.route + '/'));
+  if (req.method === 'GET' && statusJob) {
     const id = url.pathname.split('/').pop();
-    return json(res, 200, trimJobs[id] ?? {status: 'unknown'});
-  }
-
-  // ---- auto-arrange clips into a coherent order (transcribe → Gemini order) ----
-  if (req.method === 'POST' && url.pathname === '/api/arrange') {
-    const id = String(Date.now());
-    const inFile = path.join(ROOT, `.arrange-${id}.json`);
-    fs.writeFileSync(inFile, await body(req)); // {clips}
-    arrangeJobs[id] = {status: 'running', progress: 0, label: 'Starting'};
-    const child = spawn('node', ['scripts/arrange-clips.mjs', inFile], {cwd: ROOT, env: process.env});
-    const onChunk = (d) => {
-      for (const m of String(d).matchAll(/PROGRESS:(\d+):([^\n]+)/g)) {
-        arrangeJobs[id] = {status: 'running', progress: +m[1], label: m[2].trim()};
-      }
-    };
-    child.stdout.on('data', onChunk);
-    child.stderr.on('data', (d) => { onChunk(d); process.stderr.write(d); });
-    child.on('close', (code) => {
-      fs.rmSync(inFile, {force: true});
-      arrangeJobs[id] = code === 0 ? {status: 'done', progress: 100, label: 'Ready'} : {status: 'error', error: `arrange exited ${code}`};
-    });
-    return json(res, 200, {jobId: id});
-  }
-  if (req.method === 'GET' && url.pathname.startsWith('/api/arrange/')) {
-    const id = url.pathname.split('/').pop();
-    return json(res, 200, arrangeJobs[id] ?? {status: 'unknown'});
-  }
-
-  // ---- generate B-roll for the current cut (Gemini detect → own assets / Pexels) ----
-  if (req.method === 'POST' && url.pathname === '/api/broll') {
-    const id = String(Date.now());
-    const inFile = path.join(ROOT, `.broll-${id}.json`);
-    fs.writeFileSync(inFile, await body(req)); // {clips, brollAssets}
-    brollJobs[id] = {status: 'running', progress: 0, label: 'Starting'};
-    const child = spawn('node', ['scripts/broll-multiclip.mjs', inFile], {cwd: ROOT, env: process.env});
-    const onChunk = (d) => {
-      for (const m of String(d).matchAll(/PROGRESS:(\d+):([^\n]+)/g)) {
-        brollJobs[id] = {status: 'running', progress: +m[1], label: m[2].trim()};
-      }
-    };
-    child.stdout.on('data', onChunk);
-    child.stderr.on('data', (d) => { onChunk(d); process.stderr.write(d); });
-    child.on('close', (code) => {
-      fs.rmSync(inFile, {force: true});
-      brollJobs[id] = code === 0 ? {status: 'done', progress: 100, label: 'Ready'} : {status: 'error', error: `broll exited ${code}`};
-    });
-    return json(res, 200, {jobId: id});
-  }
-  if (req.method === 'GET' && url.pathname.startsWith('/api/broll/')) {
-    const id = url.pathname.split('/').pop();
-    return json(res, 200, brollJobs[id] ?? {status: 'unknown'});
+    return json(res, 200, statusJob.store[id] ?? {status: 'unknown'});
   }
 
   // ---- E9: запустить рендер ----
@@ -433,11 +426,15 @@ const server = createServer(async (req, res) => {
     // tuned for a many-core machine: higher concurrency + faster x264 preset +
     // a big OffthreadVideo cache (lots of trimmed segments seek the sources a lot).
     // Draft: half resolution + ultrafast — for quick checks, ~40% faster.
+    // scale to the machine: leave 2 cores for the browser/encoder, cap the
+    // OffthreadVideo cache at a quarter of RAM (max 4 GB)
+    const concurrency = Math.max(2, Math.min(16, os.cpus().length - 2));
+    const cacheBytes = Math.min(4e9, Math.max(5e8, Math.floor(os.totalmem() / 4)));
     const args = [
       'remotion', 'render', 'MultiClip', outFile, `--props=${propsFile}`,
-      '--concurrency=16',
+      `--concurrency=${concurrency}`,
       `--x264-preset=${draft ? 'ultrafast' : 'veryfast'}`,
-      '--offthreadvideo-cache-size-in-bytes=4000000000',
+      `--offthreadvideo-cache-size-in-bytes=${cacheBytes}`,
       ...(draft ? ['--scale=0.5'] : []),
     ];
     const child = spawn('npx', args, {cwd: ROOT});

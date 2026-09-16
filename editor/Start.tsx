@@ -1,8 +1,10 @@
-import React, {useRef, useState} from 'react';
+import React, {useEffect, useRef, useState} from 'react';
 import {useEditor} from './store';
 import {clipDurationSec} from '../src/timeline';
 
 export type ProjectMeta = {id: string; name: string; clips: number; updatedAt: string | null; thumb: string | null};
+type HealthCheck = {id: string; ok: boolean; label: string; hint: string; optional?: boolean};
+type Health = {ok: boolean; checks: HealthCheck[]};
 
 const fmt = (s: number) => `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}`;
 const ago = (iso: string | null) => {
@@ -25,6 +27,10 @@ export const Start: React.FC<{
   const inputRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
+  const [health, setHealth] = useState<Health | null>(null);
+  const checkHealth = () => fetch('/api/health').then((r) => r.json()).then(setHealth).catch(() => setHealth(null));
+  useEffect(() => { checkHealth(); }, []);
+  const problems = health?.checks.filter((c) => !c.ok) ?? [];
 
   const importFiles = async (files: File[]) => {
     const vids = files.filter((f) => f.type.startsWith('video/') || /\.(mp4|mov|m4v|webm|mkv)$/i.test(f.name));
@@ -63,6 +69,25 @@ export const Start: React.FC<{
           <h1 className="text-headline-lg font-headline-lg font-bold">AutoBroll</h1>
           <p className="text-body-md text-on-surface-variant mt-1">Open a project or drop clips to start a new one</p>
         </div>
+
+        {/* Setup problems (from /api/health): shown until everything the AI steps need is in place */}
+        {problems.length > 0 && (
+          <div className="mb-6 rounded-xl border border-outline-variant/60 bg-surface-container-low p-4">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-body-md font-bold">Setup — {problems.filter((c) => !c.optional).length ? 'a few things are missing' : 'optional'}</p>
+              <button onClick={checkHealth} className="text-[11px] uppercase tracking-wide text-primary hover:underline">Re-check</button>
+            </div>
+            <ul className="space-y-1.5">
+              {problems.map((c) => (
+                <li key={c.id} className="flex gap-2 text-body-sm">
+                  <span className={`material-symbols-outlined text-[18px] ${c.optional ? 'text-on-surface-variant' : 'text-error'}`}>{c.optional ? 'info' : 'error'}</span>
+                  <span><span className="font-medium">{c.label}</span> <span className="text-on-surface-variant">— {c.hint}</span></span>
+                </li>
+              ))}
+            </ul>
+            <p className="text-[11px] text-on-surface-variant mt-3">Quick fix: <code className="px-1 rounded bg-surface-container">npm run setup</code> in the project folder, then fill <code className="px-1 rounded bg-surface-container">.env</code>.</p>
+          </div>
+        )}
 
         {/* New project */}
         <input ref={inputRef} type="file" accept="video/*" multiple onChange={onPick} className="hidden" />
