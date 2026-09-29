@@ -1,7 +1,7 @@
 {
   "name": "autobroll",
   "version": "0.4.0",
-  "description": "AI short-form video editor in the browser: auto-arrange takes, cut silence, human-looking captions, auto B-roll, keyframed zoom/pan \u2014 built on Remotion.",
+  "description": "AI short-form video editor in the browser: auto-arrange takes, cut silence, human-looking captions, auto B-roll, keyframed zoom/pan — built on Remotion.",
   "license": "MIT",
   "private": true,
   "keywords": [
@@ -40,10 +40,12 @@
     "zustand": "^5.0.14"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
     "@types/react": "19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^4.7.0",
     "autoprefixer": "^10.5.0",
+    "playwright-core": "^1.63.0",
     "postcss": "^8.5.15",
     "tailwindcss": "^3.4.19",
     "typescript": "5.8.2",

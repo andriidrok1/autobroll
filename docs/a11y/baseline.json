@@ -1,0 +1,573 @@
+{
+  "generatedAt": "2026-09-29T21:52:05.760Z",
+  "url": "http://localhost:5173",
+  "summary": {
+    "byImpact": {
+      "critical": 2,
+      "serious": 8,
+      "moderate": 7,
+      "minor": 0
+    },
+    "byRule": {
+      "landmark-one-main": 1,
+      "nested-interactive": 4,
+      "region": 4,
+      "landmark-unique": 1,
+      "page-has-heading-one": 1,
+      "scrollable-region-focusable": 1,
+      "color-contrast": 3,
+      "label": 2
+    },
+    "uniqueNodes": 17
+  },
+  "unique": [
+    {
+      "rule": "landmark-one-main",
+      "impact": "moderate",
+      "screen": "start",
+      "target": "html",
+      "html": "<html lang=\"en\" class=\"dark\">"
+    },
+    {
+      "rule": "nested-interactive",
+      "impact": "serious",
+      "screen": "start",
+      "target": ".group.text-left.overflow-hidden:nth-child(1)",
+      "html": "<div role=\"button\" tabindex=\"0\" class=\"group relative text-left rounded-lg overflow-hidden border border-outline-variant/50 bg-surface-container-low hover:border-primary transition-all cursor-pointer\">"
+    },
+    {
+      "rule": "nested-interactive",
+      "impact": "serious",
+      "screen": "start",
+      "target": ".group.text-left.overflow-hidden:nth-child(2)",
+      "html": "<div role=\"button\" tabindex=\"0\" class=\"group relative text-left rounded-lg overflow-hidden border border-outline-variant/50 bg-surface-container-low hover:border-primary transition-all cursor-pointer\">"
+    },
+    {
+      "rule": "nested-interactive",
+      "impact": "serious",
+      "screen": "start",
+      "target": ".group.text-left.overflow-hidden:nth-child(3)",
+      "html": "<div role=\"button\" tabindex=\"0\" class=\"group relative text-left rounded-lg overflow-hidden border border-outline-variant/50 bg-surface-container-low hover:border-primary transition-all cursor-pointer\">"
+    },
+    {
+      "rule": "nested-interactive",
+      "impact": "serious",
+      "screen": "start",
+      "target": ".group.text-left.overflow-hidden:nth-child(4)",
+      "html": "<div role=\"button\" tabindex=\"0\" class=\"group relative text-left rounded-lg overflow-hidden border border-outline-variant/50 bg-surface-container-low hover:border-primary transition-all cursor-pointer\">"
+    },
+    {
+      "rule": "region",
+      "impact": "moderate",
+      "screen": "start",
+      "target": ".mb-8",
+      "html": "<div class=\"mb-8 text-center\"><h1 class=\"text-headline-lg font-headline-lg font-bold\">AutoBroll</h1><p class=\"text-body-md text-on-surface-variant mt-1\">Open a project or drop clips to start a new one</p></div>"
+    },
+    {
+      "rule": "region",
+      "impact": "moderate",
+      "screen": "start",
+      "target": ".text-\\[48px\\]",
+      "html": "<span class=\"material-symbols-outlined text-[48px] text-primary\">video_library</span>"
+    },
+    {
+      "rule": "region",
+      "impact": "moderate",
+      "screen": "start",
+      "target": ".rounded-xl > .text-body-sm",
+      "html": "<p class=\"text-body-sm text-on-surface-variant\">or drag &amp; drop videos here</p>"
+    },
+    {
+      "rule": "region",
+      "impact": "moderate",
+      "screen": "start",
+      "target": "h2",
+      "html": "<h2 class=\"text-label-bold font-label-bold uppercase tracking-wider text-on-surface-variant mb-3\">Recent projects</h2>"
+    },
+    {
+      "rule": "landmark-unique",
+      "impact": "moderate",
+      "screen": "editor",
+      "target": ".w-64",
+      "html": "<aside class=\"w-64 bg-surface-container-low border-r flex flex-col h-full shrink-0 relative border-outline-variant\">"
+    },
+    {
+      "rule": "page-has-heading-one",
+      "impact": "moderate",
+      "screen": "editor",
+      "target": "html",
+      "html": "<html lang=\"en\" class=\"dark\">"
+    },
+    {
+      "rule": "scrollable-region-focusable",
+      "impact": "serious",
+      "screen": "editor",
+      "target": ".overflow-x-auto",
+      "html": "<div class=\"flex-1 overflow-x-auto relative timeline-grid\">"
+    },
+    {
+      "rule": "color-contrast",
+      "impact": "serious",
+      "screen": "editor-clip-selected",
+      "target": ".mt-2.text-\\[11px\\].text-on-surface-variant\\/60",
+      "html": "<p class=\"text-[11px] text-on-surface-variant/60 mt-2\">Drag the clip's edges on the Video track to trim.</p>"
+    },
+    {
+      "rule": "label",
+      "impact": "critical",
+      "screen": "editor-clip-selected",
+      "target": "input[min=\"25\"]",
+      "html": "<input min=\"25\" max=\"400\" step=\"5\" class=\"w-full mt-1 accent-primary\" type=\"range\" value=\"100\" style=\"\">"
+    },
+    {
+      "rule": "label",
+      "impact": "critical",
+      "screen": "editor-clip-selected",
+      "target": "input[min=\"0\"]",
+      "html": "<input min=\"0\" max=\"200\" class=\"w-full accent-primary disabled:opacity-40\" type=\"range\" value=\"100\" style=\"\">"
+    },
+    {
+      "rule": "color-contrast",
+      "impact": "serious",
+      "screen": "editor-tab-styles",
+      "target": ".text-\\[11px\\]",
+      "html": "<p class=\"text-[11px] text-on-surface-variant/60 mt-3\">Highlights the meaningful words in your captions.</p>"
+    },
+    {
+      "rule": "color-contrast",
+      "impact": "serious",
+      "screen": "editor-tab-settings",
+      "target": "div:nth-child(1) > .mt-2",
+      "html": "<p class=\"text-body-sm text-on-surface-variant/60 mt-2\">No music. Add a track in the Assets panel.</p>"
+    }
+  ],
+  "screens": [
+    {
+      "name": "start",
+      "url": "http://localhost:5173/",
+      "violations": [
+        {
+          "id": "landmark-one-main",
+          "impact": "moderate",
+          "help": "Document should have one main landmark",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.13/landmark-one-main?application=playwright",
+          "nodes": [
+            {
+              "target": [
+                "html"
+              ],
+              "html": "<html lang=\"en\" class=\"dark\">",
+              "summary": "Fix all of the following:\n  Document does not have a main landmark"
+            }
+          ]
+        },
+        {
+          "id": "nested-interactive",
+          "impact": "serious",
+          "help": "Interactive controls must not be nested",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.13/nested-interactive?application=playwright",
+          "nodes": [
+            {
+              "target": [
+                ".group.text-left.overflow-hidden:nth-child(1)"
+              ],
+              "html": "<div role=\"button\" tabindex=\"0\" class=\"group relative text-left rounded-lg overflow-hidden border border-outline-variant/50 bg-surface-container-low hover:border-primary transition-all cursor-pointer\">",
+              "summary": "Fix any of the following:\n  Element has focusable descendants"
+            },
+            {
+              "target": [
+                ".group.text-left.overflow-hidden:nth-child(2)"
+              ],
+              "html": "<div role=\"button\" tabindex=\"0\" class=\"group relative text-left rounded-lg overflow-hidden border border-outline-variant/50 bg-surface-container-low hover:border-primary transition-all cursor-pointer\">",
+              "summary": "Fix any of the following:\n  Element has focusable descendants"
+            },
+            {
+              "target": [
+                ".group.text-left.overflow-hidden:nth-child(3)"
+              ],
+              "html": "<div role=\"button\" tabindex=\"0\" class=\"group relative text-left rounded-lg overflow-hidden border border-outline-variant/50 bg-surface-container-low hover:border-primary transition-all cursor-pointer\">",
+              "summary": "Fix any of the following:\n  Element has focusable descendants"
+            },
+            {
+              "target": [
+                ".group.text-left.overflow-hidden:nth-child(4)"
+              ],
+              "html": "<div role=\"button\" tabindex=\"0\" class=\"group relative text-left rounded-lg overflow-hidden border border-outline-variant/50 bg-surface-container-low hover:border-primary transition-all cursor-pointer\">",
+              "summary": "Fix any of the following:\n  Element has focusable descendants"
+            }
+          ]
+        },
+        {
+          "id": "region",
+          "impact": "moderate",
+          "help": "All page content should be contained by landmarks",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.13/region?application=playwright",
+          "nodes": [
+            {
+              "target": [
+                ".mb-8"
+              ],
+              "html": "<div class=\"mb-8 text-center\"><h1 class=\"text-headline-lg font-headline-lg font-bold\">AutoBroll</h1><p class=\"text-body-md text-on-surface-variant mt-1\">Open a project or drop clips to start a new one</p></div>",
+              "summary": "Fix any of the following:\n  Some page content is not contained by landmarks"
+            },
+            {
+              "target": [
+                ".text-\\[48px\\]"
+              ],
+              "html": "<span class=\"material-symbols-outlined text-[48px] text-primary\">video_library</span>",
+              "summary": "Fix any of the following:\n  Some page content is not contained by landmarks"
+            },
+            {
+              "target": [
+                ".rounded-xl > .text-body-sm"
+              ],
+              "html": "<p class=\"text-body-sm text-on-surface-variant\">or drag &amp; drop videos here</p>",
+              "summary": "Fix any of the following:\n  Some page content is not contained by landmarks"
+            },
+            {
+              "target": [
+                "h2"
+              ],
+              "html": "<h2 class=\"text-label-bold font-label-bold uppercase tracking-wider text-on-surface-variant mb-3\">Recent projects</h2>",
+              "summary": "Fix any of the following:\n  Some page content is not contained by landmarks"
+            }
+          ]
+        }
+      ],
+      "passes": 22,
+      "incomplete": 0
+    },
+    {
+      "name": "editor",
+      "url": "http://localhost:5173/",
+      "violations": [
+        {
+          "id": "landmark-unique",
+          "impact": "moderate",
+          "help": "Landmarks should have a unique role or role/label/title (i.e. accessible name) combination",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.13/landmark-unique?application=playwright",
+          "nodes": [
+            {
+              "target": [
+                ".w-64"
+              ],
+              "html": "<aside class=\"w-64 bg-surface-container-low border-r flex flex-col h-full shrink-0 relative border-outline-variant\">",
+              "summary": "Fix any of the following:\n  The landmark must have a unique aria-label, aria-labelledby, or title to make landmarks distinguishable"
+            }
+          ]
+        },
+        {
+          "id": "page-has-heading-one",
+          "impact": "moderate",
+          "help": "Page should contain a level-one heading",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.13/page-has-heading-one?application=playwright",
+          "nodes": [
+            {
+              "target": [
+                "html"
+              ],
+              "html": "<html lang=\"en\" class=\"dark\">",
+              "summary": "Fix all of the following:\n  Page must have a level-one heading"
+            }
+          ]
+        },
+        {
+          "id": "scrollable-region-focusable",
+          "impact": "serious",
+          "help": "Scrollable region must have keyboard access",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.13/scrollable-region-focusable?application=playwright",
+          "nodes": [
+            {
+              "target": [
+                ".overflow-x-auto"
+              ],
+              "html": "<div class=\"flex-1 overflow-x-auto relative timeline-grid\">",
+              "summary": "Fix any of the following:\n  Element should have focusable content\n  Element should be focusable"
+            }
+          ]
+        }
+      ],
+      "passes": 27,
+      "incomplete": 2
+    },
+    {
+      "name": "editor-clip-selected",
+      "url": "http://localhost:5173/",
+      "violations": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "help": "Elements must meet minimum color contrast ratio thresholds",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.13/color-contrast?application=playwright",
+          "nodes": [
+            {
+              "target": [
+                ".mt-2.text-\\[11px\\].text-on-surface-variant\\/60"
+              ],
+              "html": "<p class=\"text-[11px] text-on-surface-variant/60 mt-2\">Drag the clip's edges on the Video track to trim.</p>",
+              "summary": "Fix any of the following:\n  Element has insufficient color contrast of 3.89 (foreground color: #8a8894, background color: #2e2e30, font size: 8.3pt (11px), font weight: normal). Expected contrast ratio of 4.5:1"
+            }
+          ]
+        },
+        {
+          "id": "label",
+          "impact": "critical",
+          "help": "Form elements must have labels",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.13/label?application=playwright",
+          "nodes": [
+            {
+              "target": [
+                "input[min=\"25\"]"
+              ],
+              "html": "<input min=\"25\" max=\"400\" step=\"5\" class=\"w-full mt-1 accent-primary\" type=\"range\" value=\"100\" style=\"\">",
+              "summary": "Fix any of the following:\n  Element does not have an implicit (wrapped) <label>\n  Element does not have an explicit <label>\n  aria-label attribute does not exist or is empty\n  aria-labelledby attribute does not exist, references elements that do not exist or references elements that are empty\n  Element has no title attribute\n  Element has no placeholder attribute\n  Element's default semantics were not overridden with role=\"none\" or role=\"presentation\""
+            },
+            {
+              "target": [
+                "input[min=\"0\"]"
+              ],
+              "html": "<input min=\"0\" max=\"200\" class=\"w-full accent-primary disabled:opacity-40\" type=\"range\" value=\"100\" style=\"\">",
+              "summary": "Fix any of the following:\n  Element does not have an implicit (wrapped) <label>\n  Element does not have an explicit <label>\n  aria-label attribute does not exist or is empty\n  aria-labelledby attribute does not exist, references elements that do not exist or references elements that are empty\n  Element has no title attribute\n  Element has no placeholder attribute\n  Element's default semantics were not overridden with role=\"none\" or role=\"presentation\""
+            }
+          ]
+        },
+        {
+          "id": "landmark-unique",
+          "impact": "moderate",
+          "help": "Landmarks should have a unique role or role/label/title (i.e. accessible name) combination",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.13/landmark-unique?application=playwright",
+          "nodes": [
+            {
+              "target": [
+                ".w-64"
+              ],
+              "html": "<aside class=\"w-64 bg-surface-container-low border-r flex flex-col h-full shrink-0 relative border-outline-variant\">",
+              "summary": "Fix any of the following:\n  The landmark must have a unique aria-label, aria-labelledby, or title to make landmarks distinguishable"
+            }
+          ]
+        },
+        {
+          "id": "page-has-heading-one",
+          "impact": "moderate",
+          "help": "Page should contain a level-one heading",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.13/page-has-heading-one?application=playwright",
+          "nodes": [
+            {
+              "target": [
+                "html"
+              ],
+              "html": "<html lang=\"en\" class=\"dark\">",
+              "summary": "Fix all of the following:\n  Page must have a level-one heading"
+            }
+          ]
+        },
+        {
+          "id": "scrollable-region-focusable",
+          "impact": "serious",
+          "help": "Scrollable region must have keyboard access",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.13/scrollable-region-focusable?application=playwright",
+          "nodes": [
+            {
+              "target": [
+                ".overflow-x-auto"
+              ],
+              "html": "<div class=\"flex-1 overflow-x-auto relative timeline-grid\">",
+              "summary": "Fix any of the following:\n  Element should have focusable content\n  Element should be focusable"
+            }
+          ]
+        }
+      ],
+      "passes": 27,
+      "incomplete": 2
+    },
+    {
+      "name": "editor-tab-b-roll",
+      "url": "http://localhost:5173/",
+      "violations": [
+        {
+          "id": "landmark-unique",
+          "impact": "moderate",
+          "help": "Landmarks should have a unique role or role/label/title (i.e. accessible name) combination",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.13/landmark-unique?application=playwright",
+          "nodes": [
+            {
+              "target": [
+                ".w-64"
+              ],
+              "html": "<aside class=\"w-64 bg-surface-container-low border-r flex flex-col h-full shrink-0 relative border-outline-variant\">",
+              "summary": "Fix any of the following:\n  The landmark must have a unique aria-label, aria-labelledby, or title to make landmarks distinguishable"
+            }
+          ]
+        },
+        {
+          "id": "page-has-heading-one",
+          "impact": "moderate",
+          "help": "Page should contain a level-one heading",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.13/page-has-heading-one?application=playwright",
+          "nodes": [
+            {
+              "target": [
+                "html"
+              ],
+              "html": "<html lang=\"en\" class=\"dark\">",
+              "summary": "Fix all of the following:\n  Page must have a level-one heading"
+            }
+          ]
+        },
+        {
+          "id": "scrollable-region-focusable",
+          "impact": "serious",
+          "help": "Scrollable region must have keyboard access",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.13/scrollable-region-focusable?application=playwright",
+          "nodes": [
+            {
+              "target": [
+                ".overflow-x-auto"
+              ],
+              "html": "<div class=\"flex-1 overflow-x-auto relative timeline-grid\">",
+              "summary": "Fix any of the following:\n  Element should have focusable content\n  Element should be focusable"
+            }
+          ]
+        }
+      ],
+      "passes": 27,
+      "incomplete": 2
+    },
+    {
+      "name": "editor-tab-styles",
+      "url": "http://localhost:5173/",
+      "violations": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "help": "Elements must meet minimum color contrast ratio thresholds",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.13/color-contrast?application=playwright",
+          "nodes": [
+            {
+              "target": [
+                ".text-\\[11px\\]"
+              ],
+              "html": "<p class=\"text-[11px] text-on-surface-variant/60 mt-3\">Highlights the meaningful words in your captions.</p>",
+              "summary": "Fix any of the following:\n  Element has insufficient color contrast of 4 (foreground color: #888692, background color: #2a2a2c, font size: 8.3pt (11px), font weight: normal). Expected contrast ratio of 4.5:1"
+            }
+          ]
+        },
+        {
+          "id": "landmark-unique",
+          "impact": "moderate",
+          "help": "Landmarks should have a unique role or role/label/title (i.e. accessible name) combination",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.13/landmark-unique?application=playwright",
+          "nodes": [
+            {
+              "target": [
+                ".w-64"
+              ],
+              "html": "<aside class=\"w-64 bg-surface-container-low border-r flex flex-col h-full shrink-0 relative border-outline-variant\">",
+              "summary": "Fix any of the following:\n  The landmark must have a unique aria-label, aria-labelledby, or title to make landmarks distinguishable"
+            }
+          ]
+        },
+        {
+          "id": "page-has-heading-one",
+          "impact": "moderate",
+          "help": "Page should contain a level-one heading",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.13/page-has-heading-one?application=playwright",
+          "nodes": [
+            {
+              "target": [
+                "html"
+              ],
+              "html": "<html lang=\"en\" class=\"dark\">",
+              "summary": "Fix all of the following:\n  Page must have a level-one heading"
+            }
+          ]
+        },
+        {
+          "id": "scrollable-region-focusable",
+          "impact": "serious",
+          "help": "Scrollable region must have keyboard access",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.13/scrollable-region-focusable?application=playwright",
+          "nodes": [
+            {
+              "target": [
+                ".overflow-x-auto"
+              ],
+              "html": "<div class=\"flex-1 overflow-x-auto relative timeline-grid\">",
+              "summary": "Fix any of the following:\n  Element should have focusable content\n  Element should be focusable"
+            }
+          ]
+        }
+      ],
+      "passes": 27,
+      "incomplete": 2
+    },
+    {
+      "name": "editor-tab-settings",
+      "url": "http://localhost:5173/",
+      "violations": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "help": "Elements must meet minimum color contrast ratio thresholds",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.13/color-contrast?application=playwright",
+          "nodes": [
+            {
+              "target": [
+                "div:nth-child(1) > .mt-2"
+              ],
+              "html": "<p class=\"text-body-sm text-on-surface-variant/60 mt-2\">No music. Add a track in the Assets panel.</p>",
+              "summary": "Fix any of the following:\n  Element has insufficient color contrast of 4 (foreground color: #888692, background color: #2a2a2c, font size: 9.0pt (12px), font weight: normal). Expected contrast ratio of 4.5:1"
+            }
+          ]
+        },
+        {
+          "id": "landmark-unique",
+          "impact": "moderate",
+          "help": "Landmarks should have a unique role or role/label/title (i.e. accessible name) combination",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.13/landmark-unique?application=playwright",
+          "nodes": [
+            {
+              "target": [
+                ".w-64"
+              ],
+              "html": "<aside class=\"w-64 bg-surface-container-low border-r flex flex-col h-full shrink-0 relative border-outline-variant\">",
+              "summary": "Fix any of the following:\n  The landmark must have a unique aria-label, aria-labelledby, or title to make landmarks distinguishable"
+            }
+          ]
+        },
+        {
+          "id": "page-has-heading-one",
+          "impact": "moderate",
+          "help": "Page should contain a level-one heading",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.13/page-has-heading-one?application=playwright",
+          "nodes": [
+            {
+              "target": [
+                "html"
+              ],
+              "html": "<html lang=\"en\" class=\"dark\">",
+              "summary": "Fix all of the following:\n  Page must have a level-one heading"
+            }
+          ]
+        },
+        {
+          "id": "scrollable-region-focusable",
+          "impact": "serious",
+          "help": "Scrollable region must have keyboard access",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.13/scrollable-region-focusable?application=playwright",
+          "nodes": [
+            {
+              "target": [
+                ".overflow-x-auto"
+              ],
+              "html": "<div class=\"flex-1 overflow-x-auto relative timeline-grid\">",
+              "summary": "Fix any of the following:\n  Element should have focusable content\n  Element should be focusable"
+            }
+          ]
+        }
+      ],
+      "passes": 27,
+      "incomplete": 2
+    }
+  ]
+}
