@@ -44,6 +44,20 @@
   background: #918f9f;
 }
 
+/* Keyboard focus: one visible ring everywhere (mouse clicks don't show it).
+   Never remove outlines on interactive elements — use this instead. */
+:focus-visible {
+  outline: 2px solid #c2c1ff;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+/* timeline blocks are dense — draw the ring inside so neighbours don't clip it,
+   and in white so it reads against the purple "selected" border */
+[data-timeline-block]:focus-visible {
+  outline-color: #ffffff;
+  outline-offset: -2px;
+}
+
 /* Material Symbols sizing */
 .material-symbols-outlined {
   font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
