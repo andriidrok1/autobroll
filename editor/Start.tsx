@@ -1,12 +1,11 @@
 import React, {useEffect, useRef, useState} from 'react';
 import {useEditor} from './store';
-import {clipDurationSec} from '../src/timeline';
+import {IconButton} from './IconButton';
 
 export type ProjectMeta = {id: string; name: string; clips: number; updatedAt: string | null; thumb: string | null};
 type HealthCheck = {id: string; ok: boolean; label: string; hint: string; optional?: boolean};
 type Health = {ok: boolean; checks: HealthCheck[]};
 
-const fmt = (s: number) => `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}`;
 const ago = (iso: string | null) => {
   if (!iso) return '';
   const d = (Date.now() - new Date(iso).getTime()) / 1000;
@@ -56,14 +55,13 @@ export const Start: React.FC<{
     setDragOver(false);
     importFiles(Array.from(e.dataTransfer.files ?? []));
   };
-  const del = async (e: React.MouseEvent, id: string) => {
-    e.stopPropagation();
+  const del = async (id: string) => {
     await fetch('/api/projects/' + id, {method: 'DELETE'}).catch(() => {});
     onRefresh();
   };
 
   return (
-    <div className="h-screen bg-background text-on-surface flex flex-col items-center overflow-y-auto py-12 px-8">
+    <main className="h-screen bg-background text-on-surface flex flex-col items-center overflow-y-auto py-12 px-8">
       <div className="w-full max-w-3xl">
         <div className="mb-8 text-center">
           <h1 className="text-headline-lg font-headline-lg font-bold">AutoBroll</h1>
@@ -72,25 +70,25 @@ export const Start: React.FC<{
 
         {/* Setup problems (from /api/health): shown until everything the AI steps need is in place */}
         {problems.length > 0 && (
-          <div className="mb-6 rounded-xl border border-outline-variant/60 bg-surface-container-low p-4">
+          <section aria-labelledby="setup-heading" className="mb-6 rounded-xl border border-outline-variant/60 bg-surface-container-low p-4">
             <div className="flex items-center justify-between mb-2">
-              <p className="text-body-md font-bold">Setup — {problems.filter((c) => !c.optional).length ? 'a few things are missing' : 'optional'}</p>
-              <button onClick={checkHealth} className="text-[11px] uppercase tracking-wide text-primary hover:underline">Re-check</button>
+              <h2 id="setup-heading" className="text-body-md font-bold">Setup — {problems.filter((c) => !c.optional).length ? 'a few things are missing' : 'optional'}</h2>
+              <button type="button" onClick={checkHealth} className="text-[11px] uppercase tracking-wide text-primary hover:underline">Re-check</button>
             </div>
             <ul className="space-y-1.5">
               {problems.map((c) => (
                 <li key={c.id} className="flex gap-2 text-body-sm">
-                  <span className={`material-symbols-outlined text-[18px] ${c.optional ? 'text-on-surface-variant' : 'text-error'}`}>{c.optional ? 'info' : 'error'}</span>
+                  <span aria-hidden="true" className={`material-symbols-outlined text-[18px] ${c.optional ? 'text-on-surface-variant' : 'text-error'}`}>{c.optional ? 'info' : 'error'}</span>
                   <span><span className="font-medium">{c.label}</span> <span className="text-on-surface-variant">— {c.hint}</span></span>
                 </li>
               ))}
             </ul>
             <p className="text-[11px] text-on-surface-variant mt-3">Quick fix: <code className="px-1 rounded bg-surface-container">npm run setup</code> in the project folder, then fill <code className="px-1 rounded bg-surface-container">.env</code>.</p>
-          </div>
+          </section>
         )}
 
         {/* New project */}
-        <input ref={inputRef} type="file" accept="video/*" multiple onChange={onPick} className="hidden" />
+        <input ref={inputRef} type="file" accept="video/*" multiple onChange={onPick} className="hidden" aria-label="Choose video files" />
         <div
           onClick={() => !clips.length && inputRef.current?.click()}
           onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
@@ -100,22 +98,22 @@ export const Start: React.FC<{
             dragOver ? 'border-primary bg-primary-container/10' : 'border-outline-variant bg-surface-container-low'
           } ${clips.length ? '' : 'cursor-pointer hover:border-primary/60'}`}
         >
-          <span className="material-symbols-outlined text-[48px] text-primary">{busy ? 'progress_activity' : 'video_library'}</span>
-          {busy ? (
-            <p className="text-body-md text-primary">{busy}</p>
-          ) : clips.length ? (
+          <span aria-hidden="true" className={`material-symbols-outlined text-[48px] text-primary ${busy ? 'animate-spin' : ''}`}>{busy ? 'progress_activity' : 'video_library'}</span>
+          {/* upload progress is announced as it changes */}
+          <p role="status" aria-live="polite" className={busy ? 'text-body-md text-primary' : 'sr-only'}>{busy ?? ''}</p>
+          {busy ? null : clips.length ? (
             <div className="flex flex-col items-center gap-3">
               <p className="text-body-md text-on-surface">{clips.length} clip{clips.length > 1 ? 's' : ''} ready</p>
               <div className="flex gap-2">
-                <button onClick={() => inputRef.current?.click()} className="px-4 py-2 rounded-lg border border-outline-variant text-on-surface-variant hover:bg-surface-variant text-body-md font-bold">Add more</button>
-                <button onClick={onNew} className="bg-primary-container text-on-primary-container px-5 py-2 rounded-lg font-bold text-body-md hover:brightness-110 active:scale-95 transition-all flex items-center gap-1">
-                  Open editor <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+                <button type="button" onClick={() => inputRef.current?.click()} className="px-4 py-2 rounded-lg border border-outline-variant text-on-surface-variant hover:bg-surface-variant text-body-md font-bold">Add more</button>
+                <button type="button" onClick={onNew} className="bg-primary-container text-on-primary-container px-5 py-2 rounded-lg font-bold text-body-md hover:brightness-110 active:scale-95 transition-all flex items-center gap-1">
+                  Open editor <span aria-hidden="true" className="material-symbols-outlined text-[18px]">arrow_forward</span>
                 </button>
               </div>
             </div>
           ) : (
             <>
-              <button className="bg-primary-container text-on-primary-container px-6 py-2.5 rounded-lg font-bold text-body-md hover:brightness-110 active:scale-95 transition-all">New project — add files</button>
+              <button type="button" className="bg-primary-container text-on-primary-container px-6 py-2.5 rounded-lg font-bold text-body-md hover:brightness-110 active:scale-95 transition-all">New project — add files</button>
               <p className="text-body-sm text-on-surface-variant">or drag &amp; drop videos here</p>
             </>
           )}
@@ -123,44 +121,49 @@ export const Start: React.FC<{
 
         {/* Recent projects */}
         {projects.length > 0 && (
-          <div className="mt-10">
-            <h2 className="text-label-bold font-label-bold uppercase tracking-wider text-on-surface-variant mb-3">Recent projects</h2>
-            <div className="grid grid-cols-3 gap-3">
-              {projects.map((p) => (
-                <div
-                  key={p.id}
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => onOpen(p.id)}
-                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(p.id); } }}
-                  className="group relative text-left rounded-lg overflow-hidden border border-outline-variant/50 bg-surface-container-low hover:border-primary transition-all cursor-pointer"
-                >
-                  <div className="aspect-video bg-surface-container relative">
-                    {p.thumb ? (
-                      <img src={p.thumb} alt="" className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-on-surface-variant/40">
-                        <span className="material-symbols-outlined">movie</span>
-                      </div>
-                    )}
+          <section aria-labelledby="recent-heading" className="mt-10">
+            <h2 id="recent-heading" className="text-label-bold font-label-bold uppercase tracking-wider text-on-surface-variant mb-3">Recent projects</h2>
+            <ul className="grid grid-cols-3 gap-3 list-none m-0 p-0">
+              {projects.map((p) => {
+                const clipsLabel = `${p.clips} clip${p.clips === 1 ? '' : 's'}`;
+                return (
+                  // the open button and the delete button are siblings (no nested controls);
+                  // the delete button is revealed on hover AND on keyboard focus
+                  <li key={p.id} className="group relative rounded-lg overflow-hidden border border-outline-variant/50 bg-surface-container-low hover:border-primary focus-within:border-primary transition-all">
                     <button
-                      onClick={(e) => del(e, p.id)}
-                      title="Delete project"
-                      className="absolute top-1 right-1 w-6 h-6 rounded bg-surface-container-lowest/80 text-on-surface-variant hover:text-error opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+                      type="button"
+                      onClick={() => onOpen(p.id)}
+                      aria-label={`Open ${p.name}, ${clipsLabel}, updated ${ago(p.updatedAt) || 'unknown'}`}
+                      className="w-full text-left cursor-pointer"
                     >
-                      <span className="material-symbols-outlined text-[16px]">delete</span>
+                      <div className="aspect-video bg-surface-container">
+                        {p.thumb ? (
+                          <img src={p.thumb} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-on-surface-variant/40">
+                            <span aria-hidden="true" className="material-symbols-outlined">movie</span>
+                          </div>
+                        )}
+                      </div>
+                      <div className="p-2">
+                        <p className="text-body-sm font-medium truncate">{p.name}</p>
+                        <p className="text-[11px] text-on-surface-variant">{clipsLabel} · {ago(p.updatedAt)}</p>
+                      </div>
                     </button>
-                  </div>
-                  <div className="p-2">
-                    <p className="text-body-sm font-medium truncate">{p.name}</p>
-                    <p className="text-[11px] text-on-surface-variant">{p.clips} clip{p.clips === 1 ? '' : 's'} · {ago(p.updatedAt)}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+                    <IconButton
+                      icon="delete"
+                      size={16}
+                      label={`Delete project ${p.name}`}
+                      onClick={() => del(p.id)}
+                      className="absolute top-1 right-1 w-6 h-6 rounded bg-surface-container-lowest/80 text-on-surface-variant hover:text-error opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
+                    />
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
         )}
       </div>
-    </div>
+    </main>
   );
 };
