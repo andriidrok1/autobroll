@@ -24,7 +24,10 @@
     "editor:server": "node server/index.mjs",
     "studio": "remotion studio",
     "typecheck": "tsc --noEmit",
-    "mcp": "node mcp/server.mjs"
+    "mcp": "node mcp/server.mjs",
+    "build": "vite build",
+    "test": "node --test \"editor/**/*.test.mjs\"",
+    "a11y": "node scripts/a11y.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",

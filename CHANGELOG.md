@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+**Accessibility pass** — keyboard navigation, ARIA names, axe-core 0 violations (was 2 critical / 8 serious / 7 moderate). Every icon button has a real name, timeline blocks are focusable (`Tab`, `Enter`/`Space` selects, `←`/`→` nudge the playhead, `Shift` = 10 frames, `Delete` removes, `Esc` clears), Inspector tabs follow the WAI-ARIA pattern, sliders are labelled, long jobs announce progress through a live region, and there is one visible focus ring everywhere. `npm run a11y` re-runs the audit; details and the full key map in `docs/a11y/README.md`.
+
 ## 0.4.0 — 2026-09-16
 
 **New: Claude can edit your video.** `mcp/server.mjs` is an MCP server with 24 tools over the project model and the AI pipelines — clips (trim, split, reorder, speed, keyframes), captions (text, accents, position, size), B-roll (Pexels search, add, move, mode), music, `run_ai_step`, `render`, and `frame_at` so Claude can look at a source or rendered frame. Register with `claude mcp add`; `.mcp.json` covers Claude Code inside the repo. The browser editor polls the project file and reloads live when Claude saves it.

@@ -1,0 +1,59 @@
+{
+  "generatedAt": "2026-09-29T22:03:25.000Z",
+  "url": "http://localhost:5173",
+  "summary": {
+    "byImpact": {
+      "critical": 0,
+      "serious": 0,
+      "moderate": 0,
+      "minor": 0
+    },
+    "byRule": {},
+    "uniqueNodes": 0
+  },
+  "unique": [],
+  "screens": [
+    {
+      "name": "start",
+      "url": "http://localhost:5173/",
+      "violations": [],
+      "passes": 33,
+      "incomplete": 0
+    },
+    {
+      "name": "editor",
+      "url": "http://localhost:5173/",
+      "violations": [],
+      "passes": 46,
+      "incomplete": 3
+    },
+    {
+      "name": "editor-clip-selected",
+      "url": "http://localhost:5173/",
+      "violations": [],
+      "passes": 48,
+      "incomplete": 3
+    },
+    {
+      "name": "editor-tab-b-roll",
+      "url": "http://localhost:5173/",
+      "violations": [],
+      "passes": 46,
+      "incomplete": 3
+    },
+    {
+      "name": "editor-tab-styles",
+      "url": "http://localhost:5173/",
+      "violations": [],
+      "passes": 44,
+      "incomplete": 3
+    },
+    {
+      "name": "editor-tab-settings",
+      "url": "http://localhost:5173/",
+      "violations": [],
+      "passes": 46,
+      "incomplete": 3
+    }
+  ]
+}

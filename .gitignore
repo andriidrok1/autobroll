@@ -24,3 +24,6 @@ public/*
 
 # IDE
 .idea/
+
+# editor build output (vite root = editor/)
+editor/dist/
