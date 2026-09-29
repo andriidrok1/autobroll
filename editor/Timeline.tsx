@@ -4,12 +4,17 @@ import {useEditor} from './store';
 import {placeClips, clipDurationSec} from '../src/timeline';
 import {projectCaptions} from '../src/captions';
 import {projectBrolls} from '../src/Broll';
+import {IconButton} from './IconButton';
+import {focusIsFromKeyboard} from './modality';
 
 // Unified multi-track timeline (Obsidian Edit design): Captions / Video / Audio
 // share one ruler, playhead, horizontal scroll and zoom.
 //   Captions — drag block = move, drag edges = retime, click = select+seek
 //   Video    — clips back-to-back; drag edges = trim; ◀▶ reorder; click = select+seek
 //   Audio    — music track (trim/volume in inspector)
+// Keyboard: every block is a focusable button (Tab), Enter/Space selects it and
+// seeks there; ←/→ nudge the playhead, Delete removes the selected clip (global
+// handler in Editor.tsx).
 
 const TRACK_H = 48;
 const LABELS_W = 112;
@@ -20,6 +25,18 @@ const fmt = (sec: number) => {
 };
 
 type WaveData = {peaks: number[]; durationSec: number};
+
+// Enter always activates a block. Space activates it only when it was reached
+// by keyboard (Tab) — after a mouse click Space keeps meaning play/pause (the
+// window handler in Editor.tsx picks it up).
+const keyActivate = (fn: () => void) => (e: React.KeyboardEvent<HTMLElement>) => {
+  if (e.key === 'Enter' || (e.key === ' ' && focusIsFromKeyboard())) {
+    e.preventDefault();
+    e.stopPropagation();
+    fn();
+  }
+};
+const secs = (ms: number) => `${(ms / 1000).toFixed(1)}s`;
 
 // audio waveform (centered bars), stretched to the parent box
 const Wave: React.FC<{peaks: number[]; color?: string}> = ({peaks, color = 'rgba(255,255,255,0.55)'}) => {
@@ -46,7 +63,7 @@ const slicePeaks = (w: WaveData | undefined, inSec: number, outSec: number): num
   return w.peaks.slice(a, Math.max(a + 1, b));
 };
 
-export const Timeline: React.FC<{playerRef: React.RefObject<PlayerRef>}> = ({playerRef}) => {
+export const Timeline: React.FC<{playerRef: React.RefObject<PlayerRef | null>}> = ({playerRef}) => {
   const {
     meta, captions, clips, music, brolls, selectedId, selectedClipId, currentFrame, dupSuggestion,
     select, selectClip, deleteClip, moveClipTo, trimClip, splitClipAtFrame, pushHistory,
@@ -183,23 +200,23 @@ export const Timeline: React.FC<{playerRef: React.RefObject<PlayerRef>}> = ({pla
       {/* toolbar */}
       <div className="h-10 border-b border-outline-variant flex items-center justify-between px-4 shrink-0">
         <div className="flex items-center gap-3 text-on-surface-variant">
-          <ToolBtn icon="content_cut" title="Split clip at playhead (S)" onClick={() => splitClipAtFrame(currentFrame)} />
-          <ToolBtn icon="delete" title="Delete selected clip" onClick={deleteSelected} />
-          <div className="h-4 w-px bg-outline-variant mx-1" />
-          <ToolBtn icon="zoom_out" title="Zoom out" onClick={() => setPxPerSec((p) => Math.max(20, p - 20))} />
-          <ToolBtn icon="zoom_in" title="Zoom in" onClick={() => setPxPerSec((p) => Math.min(220, p + 20))} />
+          <IconButton icon="content_cut" label="Split clip at playhead (S)" onClick={() => splitClipAtFrame(currentFrame)} className="hover:text-on-surface transition-colors" />
+          <IconButton icon="delete" label="Delete selected clip (Delete)" onClick={deleteSelected} disabled={!selectedClipId} className="hover:text-on-surface transition-colors disabled:opacity-40" />
+          <div aria-hidden="true" className="h-4 w-px bg-outline-variant mx-1" />
+          <IconButton icon="zoom_out" label="Zoom out" onClick={() => setPxPerSec((p) => Math.max(20, p - 20))} disabled={pxPerSec <= 20} className="hover:text-on-surface transition-colors disabled:opacity-40" />
+          <IconButton icon="zoom_in" label="Zoom in" onClick={() => setPxPerSec((p) => Math.min(220, p + 20))} disabled={pxPerSec >= 220} className="hover:text-on-surface transition-colors disabled:opacity-40" />
         </div>
         <div className="flex gap-4 text-mono-label font-mono text-on-surface-variant">
-          <span>Timeline: {fmt(currentFrame / fps)} / {fmt(totalSec)}</span>
+          <span aria-label={`Playhead at ${fmt(currentFrame / fps)} of ${fmt(totalSec)}`}>Timeline: {fmt(currentFrame / fps)} / {fmt(totalSec)}</span>
           <span>{meta.width}×{meta.height}</span>
-          <span>Zoom: {Math.round((pxPerSec / 70) * 100)}%</span>
+          <span aria-live="polite">Zoom: {Math.round((pxPerSec / 70) * 100)}%</span>
         </div>
       </div>
 
       {/* tracks */}
       <div className="flex-1 flex overflow-hidden">
-        {/* label column */}
-        <div className="flex flex-col border-r border-outline-variant bg-surface-container-lowest z-10 shrink-0" style={{width: LABELS_W}}>
+        {/* label column (visual only — each track is a named group below) */}
+        <div aria-hidden="true" className="flex flex-col border-r border-outline-variant bg-surface-container-lowest z-10 shrink-0" style={{width: LABELS_W}}>
           <div className="h-6 border-b border-outline-variant/30" />
           {['Captions', 'Video', 'B-roll', 'Audio'].map((l) => (
             <div key={l} className="flex items-center px-4 border-b border-outline-variant/30" style={{height: TRACK_H}}>
@@ -209,13 +226,19 @@ export const Timeline: React.FC<{playerRef: React.RefObject<PlayerRef>}> = ({pla
         </div>
 
         {/* scrolling canvas */}
-        <div ref={canvasRef} className="flex-1 overflow-x-auto relative timeline-grid">
+        <div
+          ref={canvasRef}
+          role="region"
+          aria-label="Timeline. Arrow keys move the playhead, Tab reaches the blocks, S splits, Delete removes the selected clip"
+          tabIndex={0}
+          className="flex-1 overflow-x-auto relative timeline-grid focus-visible:outline-offset-[-2px]"
+        >
           <div className="relative" onPointerDown={scrubStart} style={{width: trackWidth, minWidth: '100%'}}>
             {/* ruler */}
-            <div className="h-6 border-b border-outline-variant bg-surface-container/50 sticky top-0 z-10 pointer-events-none">
+            <div aria-hidden="true" className="h-6 border-b border-outline-variant bg-surface-container/50 sticky top-0 z-10 pointer-events-none">
               {ruler.map((_, s) =>
                 s % tickStep === 0 ? (
-                  <span key={s} className="absolute text-[9px] font-mono text-on-surface-variant/60 border-l border-outline-variant/30 pl-1" style={{left: s * pxPerSec, top: 6}}>
+                  <span key={s} className="absolute text-[9px] font-mono text-on-surface-variant/75 border-l border-outline-variant/30 pl-1" style={{left: s * pxPerSec, top: 6}}>
                     {s}s
                   </span>
                 ) : null,
@@ -223,36 +246,52 @@ export const Timeline: React.FC<{playerRef: React.RefObject<PlayerRef>}> = ({pla
             </div>
 
             {/* playhead */}
-            <div className="absolute w-[2px] bg-primary z-20 pointer-events-none" style={{left: playheadX, top: 0, bottom: 0}}>
+            <div aria-hidden="true" className="absolute w-[2px] bg-primary z-20 pointer-events-none" style={{left: playheadX, top: 0, bottom: 0}}>
               <div className="w-3 h-3 bg-primary rounded-full absolute top-0 -left-[5px] shadow-[0_0_8px_rgba(194,193,255,0.8)]" />
             </div>
 
             {/* Captions track (anchored to clips — follow trims/reorders) */}
-            <Track>
+            <Track label="Captions track">
               {projCaps.map((c) => {
                 const sel = c.id === selectedId;
+                const text = c.words.map((w) => w.text).join(' ');
+                const pick = () => { select(c.id); seekMs(c.startMs + 20); };
                 return (
                   <div
                     key={c.id}
-                    onPointerDown={(e) => { e.stopPropagation(); select(c.id); seekMs(c.startMs + 20); }}
-                    title={c.words.map((w) => w.text).join(' ')}
+                    role="button"
+                    tabIndex={0}
+                    aria-pressed={sel}
+                    aria-label={`Caption at ${secs(c.startMs)}: ${text}`}
+                    data-timeline-block
+                    onPointerDown={(e) => { e.stopPropagation(); pick(); }}
+                    onKeyDown={keyActivate(pick)}
+                    title={text}
                     className={`absolute top-2 h-8 rounded px-2 flex items-center clip-gradient overflow-hidden cursor-pointer ${
                       sel ? 'bg-tertiary-container border-2 border-primary shadow-[inset_0_0_10px_rgba(194,193,255,0.2)]' : 'bg-tertiary-container/30 border border-tertiary/40'
                     }`}
                     style={{left: c.startMs * pxPerMs, width: Math.max(14, (c.endMs - c.startMs) * pxPerMs)}}
                   >
-                    <span className="text-[10px] truncate text-on-tertiary-container pointer-events-none">{c.words.map((w) => w.text).join(' ')}</span>
+                    <span className="text-[10px] truncate text-on-tertiary-container pointer-events-none">{text}</span>
                   </div>
                 );
               })}
             </Track>
 
             {/* Video track (clips) */}
-            <Track>
+            <Track label="Video track">
               {placed.map(({clip, startMs}) => {
                 const sel = clip.id === selectedClipId;
                 const dup = dupSuggestion.includes(clip.id);
                 const speed = clip.speed ?? 1;
+                const name = clip.label ?? clip.id;
+                const pick = () => { selectClip(clip.id); seekFrame((startMs / 1000) * fps + 1); };
+                const description = [
+                  `Clip ${name}, ${clipDurationSec(clip).toFixed(1)}s at ${secs(startMs)}`,
+                  clip.muted ? 'muted' : '',
+                  speed !== 1 ? `${speed}× speed` : '',
+                  dup ? 'duplicate take, will be removed' : '',
+                ].filter(Boolean).join(', ');
                 const orig = {inSec: clip.inSec, outSec: clip.outSec, sourceDurationSec: clip.sourceDurationSec, speed};
                 let left = startMs * pxPerMs;
                 let w = Math.max(28, clipDurationSec(clip) * pxPerSec);
@@ -267,8 +306,14 @@ export const Timeline: React.FC<{playerRef: React.RefObject<PlayerRef>}> = ({pla
                 return (
                   <div
                     key={clip.id}
+                    role="button"
+                    tabIndex={0}
+                    aria-pressed={sel}
+                    aria-label={description}
+                    data-timeline-block
                     onPointerDown={(e) => startClipDrag(e, clip.id, startMs)}
-                    title={clip.label ?? clip.id}
+                    onKeyDown={keyActivate(pick)}
+                    title={name}
                     className={`absolute top-1 h-10 rounded flex items-center clip-gradient overflow-hidden ${
                       dragged ? 'cursor-grabbing z-30 shadow-xl opacity-90' : 'cursor-grab'
                     } ${
@@ -282,21 +327,29 @@ export const Timeline: React.FC<{playerRef: React.RefObject<PlayerRef>}> = ({pla
                   >
                     {/* voice waveform (from the source audio, sliced to the trim window) */}
                     <Wave peaks={slicePeaks(waves[clip.src], clip.inSec, clip.outSec)} color={clip.muted ? 'rgba(255,255,255,0.18)' : 'rgba(231,228,255,0.5)'} />
-                    {clip.muted && <span className="material-symbols-outlined text-[12px] text-error absolute top-0.5 left-3 z-10" title="Clip muted">volume_off</span>}
-                    {dup && <span className="material-symbols-outlined text-[12px] text-error absolute top-0.5 right-1 z-10" title="Duplicate take — will be removed">content_copy</span>}
+                    {clip.muted && <span aria-hidden="true" className="material-symbols-outlined text-[12px] text-error absolute top-0.5 left-3 z-10">volume_off</span>}
+                    {dup && <span aria-hidden="true" className="material-symbols-outlined text-[12px] text-error absolute top-0.5 right-1 z-10">content_copy</span>}
                     {/* keyframe (flag) markers — only those inside the trimmed range */}
-                    {(clip.transform ?? []).filter((k) => k.t >= clip.inSec - 0.001 && k.t <= clip.outSec + 0.001).map((k, ki) => (
-                      <span
-                        key={ki}
-                        onPointerDown={(e) => { e.stopPropagation(); selectClip(clip.id); seekFrame(((startMs / 1000) + (k.t - clip.inSec) / speed) * fps); }}
-                        title="Keyframe — click to jump"
-                        className="absolute bottom-0.5 w-1.5 h-1.5 bg-white rotate-45 -ml-[3px] z-20 cursor-pointer"
-                        style={{left: ((k.t - clip.inSec) / speed) * pxPerSec}}
-                      />
-                    ))}
-                    <div onPointerDown={(e) => trimDrag(e, clip.id, 'left', orig)} className="absolute left-0 top-0 w-2 h-full cursor-ew-resize bg-primary/30 hover:bg-primary/60 z-10" />
-                    <span className="px-2 text-[10px] text-on-primary-container font-bold truncate pointer-events-none">{clip.label ?? clip.id}</span>
-                    <div onPointerDown={(e) => trimDrag(e, clip.id, 'right', orig)} className="absolute right-0 top-0 w-2 h-full cursor-ew-resize bg-primary/30 hover:bg-primary/60 z-10" />
+                    {(clip.transform ?? []).filter((k) => k.t >= clip.inSec - 0.001 && k.t <= clip.outSec + 0.001).map((k, ki) => {
+                      const jump = () => { selectClip(clip.id); seekFrame(((startMs / 1000) + (k.t - clip.inSec) / speed) * fps); };
+                      return (
+                        <span
+                          key={ki}
+                          role="button"
+                          tabIndex={0}
+                          aria-label={`Keyframe at ${(k.t - clip.inSec).toFixed(1)}s into ${name} — jump`}
+                          onPointerDown={(e) => { e.stopPropagation(); jump(); }}
+                          onKeyDown={keyActivate(jump)}
+                          title="Keyframe — click to jump"
+                          className="absolute bottom-0.5 w-1.5 h-1.5 bg-white rotate-45 -ml-[3px] z-20 cursor-pointer"
+                          style={{left: ((k.t - clip.inSec) / speed) * pxPerSec}}
+                        />
+                      );
+                    })}
+                    {/* trim handles are pointer-only (drag); the Inspector shows in/out for everyone */}
+                    <div aria-hidden="true" onPointerDown={(e) => trimDrag(e, clip.id, 'left', orig)} className="absolute left-0 top-0 w-2 h-full cursor-ew-resize bg-primary/30 hover:bg-primary/60 z-10" />
+                    <span className="px-2 text-[10px] text-on-primary-container font-bold truncate pointer-events-none">{name}</span>
+                    <div aria-hidden="true" onPointerDown={(e) => trimDrag(e, clip.id, 'right', orig)} className="absolute right-0 top-0 w-2 h-full cursor-ew-resize bg-primary/30 hover:bg-primary/60 z-10" />
                   </div>
                 );
               })}
@@ -305,27 +358,34 @@ export const Timeline: React.FC<{playerRef: React.RefObject<PlayerRef>}> = ({pla
               {drag && (() => {
                 const others = clips.filter((c) => c.id !== drag.id);
                 const x = others.slice(0, drag.targetIdx).reduce((acc, c) => acc + clipDurationSec(c), 0) * pxPerSec;
-                return <div className="absolute top-0 h-full w-[3px] bg-primary rounded z-40 pointer-events-none shadow-[0_0_8px_rgba(194,193,255,0.9)]" style={{left: x - 1}} />;
+                return <div aria-hidden="true" className="absolute top-0 h-full w-[3px] bg-primary rounded z-40 pointer-events-none shadow-[0_0_8px_rgba(194,193,255,0.9)]" style={{left: x - 1}} />;
               })()}
             </Track>
 
             {/* B-roll track (clip-anchored — follow trims/reorders) */}
-            <Track>
+            <Track label="B-roll track">
               {projBrolls.map((b) => {
                 const sel = b.id === selectedId;
                 const left = b.startMs * pxPerMs;
                 const w = Math.max(20, (b.endMs - b.startMs) * pxPerMs);
+                const pick = () => { select(b.id); seekMs(b.startMs + 20); };
                 return (
                   <div
                     key={b.id}
-                    onPointerDown={(e) => { e.stopPropagation(); select(b.id); seekMs(b.startMs + 20); }}
+                    role="button"
+                    tabIndex={0}
+                    aria-pressed={sel}
+                    aria-label={`B-roll ${b.kind} at ${secs(b.startMs)}: ${b.query ?? b.id}`}
+                    data-timeline-block
+                    onPointerDown={(e) => { e.stopPropagation(); pick(); }}
+                    onKeyDown={keyActivate(pick)}
                     title={b.query ?? b.id}
                     className={`absolute top-2 h-8 rounded px-2 flex items-center clip-gradient overflow-hidden cursor-pointer ${
                       sel ? 'bg-tertiary-container border-2 border-primary' : 'bg-tertiary-container/40 border border-tertiary/40'
                     }`}
                     style={{left, width: w}}
                   >
-                    <span className="material-symbols-outlined text-[12px] text-on-tertiary-container mr-1 pointer-events-none">
+                    <span aria-hidden="true" className="material-symbols-outlined text-[12px] text-on-tertiary-container mr-1 pointer-events-none">
                       {b.kind === 'video' ? 'movie' : 'image'}
                     </span>
                     <span className="text-[10px] truncate text-on-tertiary-container pointer-events-none">{b.query ?? b.id}</span>
@@ -335,9 +395,9 @@ export const Timeline: React.FC<{playerRef: React.RefObject<PlayerRef>}> = ({pla
             </Track>
 
             {/* Audio track (music, with waveform) */}
-            <Track>
+            <Track label="Audio track">
               {music ? (
-                <div className="absolute top-2 h-8 rounded flex items-center clip-gradient overflow-hidden bg-on-secondary-fixed-variant/40 border border-secondary/30" style={{left: 0, width: trackWidth}}>
+                <div aria-label={`Music: ${music.src.split('/').pop()}${music.duck ? ', ducking under voice' : ''}`} className="absolute top-2 h-8 rounded flex items-center clip-gradient overflow-hidden bg-on-secondary-fixed-variant/40 border border-secondary/30" style={{left: 0, width: trackWidth}}>
                   <Wave
                     peaks={slicePeaks(waves[music.src], music.startSec ?? 0, (music.startSec ?? 0) + totalSec)}
                     color="rgba(173,198,255,0.6)"
@@ -347,7 +407,7 @@ export const Timeline: React.FC<{playerRef: React.RefObject<PlayerRef>}> = ({pla
                   </span>
                 </div>
               ) : (
-                <span className="absolute top-3 left-2 text-[10px] text-on-surface-variant/40">No music — add from the Assets panel</span>
+                <span className="absolute top-3 left-2 text-[10px] text-on-surface-variant/75">No music — add from the Assets panel</span>
               )}
             </Track>
           </div>
@@ -357,12 +417,6 @@ export const Timeline: React.FC<{playerRef: React.RefObject<PlayerRef>}> = ({pla
   );
 };
 
-const Track: React.FC<{children: React.ReactNode}> = ({children}) => (
-  <div className="relative border-b border-outline-variant/20" style={{height: TRACK_H}}>{children}</div>
-);
-
-const ToolBtn: React.FC<{icon: string; title: string; onClick: () => void}> = ({icon, title, onClick}) => (
-  <button title={title} onClick={onClick} className="material-symbols-outlined text-[18px] hover:text-on-surface transition-colors">
-    {icon}
-  </button>
+const Track: React.FC<{label: string; children: React.ReactNode}> = ({label, children}) => (
+  <div role="group" aria-label={label} className="relative border-b border-outline-variant/20" style={{height: TRACK_H}}>{children}</div>
 );
