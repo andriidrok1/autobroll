@@ -7,6 +7,9 @@ import {useEditor} from './store';
 import {Timeline} from './Timeline';
 import {AssetsSidebar} from './AssetsSidebar';
 import {Inspector} from './Inspector';
+import {IconButton} from './IconButton';
+import {isTypingTarget, resolveKey} from './keys';
+import {focusIsFromKeyboard} from './modality';
 
 const fmt = (sec: number) => {
   const s = Math.max(0, sec);
@@ -133,34 +136,51 @@ export const Editor: React.FC<{onBackToStart: () => void}> = ({onBackToStart}) =
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
 
-  // undo/redo keyboard (not while typing)
+  // Global keyboard (see editor/keys.ts for the map). Not while typing; Space
+  // is left to a keyboard-focused control so Tab + Space activates it.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      const tag = (e.target as HTMLElement)?.tagName;
-      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
-      if (e.code === 'Space') {
-        e.preventDefault(); // play/pause, not page scroll
-        playerRef.current?.toggle();
-        return;
-      }
-      if (e.key.toLowerCase() === 's' && !e.metaKey && !e.ctrlKey) {
-        e.preventDefault(); // split clip at playhead (read fresh frame from store)
-        const st = useEditor.getState();
-        st.splitClipAtFrame(st.currentFrame);
-        return;
-      }
-      const mod = e.metaKey || e.ctrlKey;
-      if (mod && e.key.toLowerCase() === 'z') {
-        e.preventDefault();
-        e.shiftKey ? redo() : undo();
-      } else if (mod && e.key.toLowerCase() === 'y') {
-        e.preventDefault();
-        redo();
+      const target = e.target as HTMLElement | null;
+      if (isTypingTarget(target)) return;
+      const targetIsFocusedButton =
+        focusIsFromKeyboard() && !!target && typeof target.matches === 'function' &&
+        target.matches('button, a, [role="button"], [role="tab"], [role="switch"], [role="option"]');
+      const st = useEditor.getState();
+      const action = resolveKey(e, {frame: st.currentFrame, totalFrames: st.meta?.durationInFrames ?? 1, targetIsFocusedButton});
+      if (!action) return;
+      e.preventDefault();
+      switch (action.type) {
+        case 'toggle-play': playerRef.current?.toggle(); break;
+        case 'seek': playerRef.current?.pause(); playerRef.current?.seekTo(action.frame); break;
+        case 'split': st.splitClipAtFrame(st.currentFrame); break;
+        case 'delete-selection':
+          if (st.selectedClipId) st.deleteClip(st.selectedClipId);
+          else if (st.selectedId && st.brolls.some((b) => b.id === st.selectedId)) st.removeBroll(st.selectedId);
+          break;
+        case 'escape':
+          if (st.dupSuggestion.length) st.setDupSuggestion([]);
+          else st.select(null);
+          break;
+        case 'undo': undo(); break;
+        case 'redo': redo(); break;
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [undo, redo]);
+
+  // One polite live region for every long-running job. Percentages are
+  // rounded to tens so a screen reader isn't read a new number every 1.5 s.
+  const tens = (label: string) => label.replace(/(\d+)%/g, (_, n) => `${Math.floor(Number(n) / 10) * 10}%`);
+  const liveStatus =
+    exp?.status === 'running' ? `Rendering ${Math.floor((exp.progress ?? 0) / 10) * 10}%`
+    : exp?.status === 'done' ? 'Export ready'
+    : exp?.status === 'error' ? 'Export failed'
+    : arranging ? `Auto-arrange: ${tens(arrangeLabel)}`
+    : trimming ? `Autocut: ${tens(trimLabel)}`
+    : generating ? `Captions: ${tens(genLabel)}`
+    : brollGen ? `B-roll: ${tens(brollLabel)}`
+    : '';
 
   // sync playhead + play state from the player
   useEffect(() => {
@@ -476,9 +496,12 @@ export const Editor: React.FC<{onBackToStart: () => void}> = ({onBackToStart}) =
 
   return (
     <div className="h-screen flex flex-col overflow-hidden bg-background text-on-surface">
+      {/* long-job progress for assistive tech (visually hidden) */}
+      <div role="status" aria-live="polite" className="sr-only">{liveStatus}</div>
       {/* toast */}
       {notice && (
         <div
+          role={notice.kind === 'error' ? 'alert' : 'status'}
           className={`fixed top-3 left-1/2 -translate-x-1/2 z-[100] px-4 py-2 rounded-lg text-body-md font-medium shadow-lg border ${
             notice.kind === 'error' ? 'bg-error-container text-on-error-container border-error/40' : 'bg-surface-container-high text-on-surface border-outline-variant'
           }`}
@@ -489,45 +512,52 @@ export const Editor: React.FC<{onBackToStart: () => void}> = ({onBackToStart}) =
       {/* Top bar */}
       <header className="bg-surface-container border-b border-outline-variant flex justify-between items-center h-12 px-4 z-50 shrink-0">
         <div className="flex items-center gap-3">
-          <button onClick={onBackToStart} title="Back to projects" className="flex items-center gap-1 text-on-surface-variant hover:text-on-surface transition-colors">
-            <span className="material-symbols-outlined text-[20px]">arrow_back</span>
+          <h1 className="sr-only">AutoBroll editor</h1>
+          <button type="button" onClick={onBackToStart} aria-label="Back to projects" title="Back to projects" className="flex items-center gap-1 text-on-surface-variant hover:text-on-surface transition-colors">
+            <span aria-hidden="true" className="material-symbols-outlined text-[20px]">arrow_back</span>
             <span className="text-headline-md font-headline-md font-bold">AutoBroll</span>
           </button>
-          <div className="h-4 w-px bg-outline-variant" />
+          <div aria-hidden="true" className="h-4 w-px bg-outline-variant" />
           <input
+            aria-label="Project name"
             value={projectName}
             onChange={(e) => setProjectName(e.target.value)}
-            className="bg-transparent text-primary font-bold text-body-md border-b border-transparent focus:border-primary focus:outline-none px-1 max-w-[220px]"
+            className="bg-transparent text-primary font-bold text-body-md border-b border-transparent focus:border-primary px-1 max-w-[220px]"
             placeholder="Untitled project"
           />
         </div>
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-1 mr-2">
-            <HdrIcon icon="undo" title="Undo (⌘Z)" onClick={undo} disabled={!past.length} />
-            <HdrIcon icon="redo" title="Redo (⇧⌘Z)" onClick={redo} disabled={!future.length} />
+            <IconButton icon="undo" size={20} label="Undo (Ctrl+Z)" onClick={undo} disabled={!past.length} className="p-1.5 rounded-lg hover:bg-surface-variant transition-colors text-on-surface-variant disabled:opacity-30" />
+            <IconButton icon="redo" size={20} label="Redo (Ctrl+Shift+Z)" onClick={redo} disabled={!future.length} className="p-1.5 rounded-lg hover:bg-surface-variant transition-colors text-on-surface-variant disabled:opacity-30" />
           </div>
           <button
+            type="button"
             onClick={arrangeClips}
             disabled={arranging || clips.length < 2}
+            aria-busy={arranging}
             title="Let AI listen and order the clips"
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-outline-variant text-on-surface-variant hover:bg-surface-variant disabled:opacity-40 transition-colors text-body-md font-bold"
           >
-            <span className={`material-symbols-outlined text-[18px] ${arranging ? 'animate-spin' : ''}`}>{arranging ? 'progress_activity' : 'sort'}</span>
+            <span aria-hidden="true" className={`material-symbols-outlined text-[18px] ${arranging ? 'animate-spin' : ''}`}>{arranging ? 'progress_activity' : 'sort'}</span>
             {arranging ? (arrangeLabel || 'Arranging…') : 'Auto-arrange'}
           </button>
           <button
+            type="button"
             onClick={trimSilence}
             disabled={trimming || !clips.length}
+            aria-busy={trimming}
             title="Cut silence at the ends AND long pauses inside every clip"
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-outline-variant text-on-surface-variant hover:bg-surface-variant disabled:opacity-40 transition-colors text-body-md font-bold"
           >
-            <span className={`material-symbols-outlined text-[18px] ${trimming ? 'animate-spin' : ''}`}>{trimming ? 'progress_activity' : 'cut'}</span>
+            <span aria-hidden="true" className={`material-symbols-outlined text-[18px] ${trimming ? 'animate-spin' : ''}`}>{trimming ? 'progress_activity' : 'cut'}</span>
             {trimming ? (trimLabel || 'Cutting…') : 'Autocut'}
           </button>
-          {exp?.status === 'running' && <span className="text-body-sm text-on-surface-variant">Rendering… {exp.progress ?? 0}%</span>}
+          {exp?.status === 'running' && <span aria-hidden="true" className="text-body-sm text-on-surface-variant">Rendering… {exp.progress ?? 0}%</span>}
           {exp?.status === 'done' && exp.file && <a href={exp.file} download className="text-body-sm text-[#39d98a]">↓ Download mp4</a>}
           {exp?.status === 'error' && <span className="text-body-sm text-error">Render error</span>}
           <button
+            type="button"
             onClick={() => exportVideo(true)}
             disabled={exp?.status === 'running'}
             title="Half resolution, fastest encode — for a quick check (~40% faster)"
@@ -535,7 +565,7 @@ export const Editor: React.FC<{onBackToStart: () => void}> = ({onBackToStart}) =
           >
             Draft
           </button>
-          <button onClick={() => exportVideo(false)} disabled={exp?.status === 'running'} className="bg-primary-container text-on-primary-container px-4 py-1.5 rounded-lg font-bold text-body-md hover:brightness-110 active:scale-95 disabled:opacity-40 transition-all">
+          <button type="button" onClick={() => exportVideo(false)} disabled={exp?.status === 'running'} className="bg-primary-container text-on-primary-container px-4 py-1.5 rounded-lg font-bold text-body-md hover:brightness-110 active:scale-95 disabled:opacity-40 transition-all">
             Export mp4
           </button>
         </div>
@@ -543,14 +573,15 @@ export const Editor: React.FC<{onBackToStart: () => void}> = ({onBackToStart}) =
 
       {/* Auto-arrange duplicate-removal suggestion (non-destructive until confirmed) */}
       {dupSuggestion.length > 0 && (
-        <div className="flex items-center justify-between gap-3 px-4 py-2 bg-primary-container/20 border-b border-primary/30 text-body-md shrink-0">
+        <div role="region" aria-label="Duplicate takes suggestion" className="flex items-center justify-between gap-3 px-4 py-2 bg-primary-container/20 border-b border-primary/30 text-body-md shrink-0">
           <span className="text-on-surface">
-            <span className="material-symbols-outlined text-[16px] align-middle mr-1 text-primary">auto_awesome</span>
+            <span aria-hidden="true" className="material-symbols-outlined text-[16px] align-middle mr-1 text-primary">auto_awesome</span>
             AI grouped your takes — remove <b>{dupSuggestion.length}</b> duplicate take(s), keeping the best of each? (⌘Z undoes)
           </span>
           <div className="flex items-center gap-2 shrink-0">
-            <button onClick={() => setDupSuggestion([])} className="px-3 py-1 rounded-lg text-on-surface-variant hover:bg-surface-variant font-bold">Keep all</button>
+            <button type="button" onClick={() => setDupSuggestion([])} className="px-3 py-1 rounded-lg text-on-surface-variant hover:bg-surface-variant font-bold">Keep all (Esc)</button>
             <button
+              type="button"
               onClick={() => { const n = dupSuggestion.length; removeClips(dupSuggestion); notify(`Removed ${n} duplicate take(s)`, 'ok'); }}
               className="px-3 py-1 rounded-lg bg-primary-container text-on-primary-container font-bold hover:brightness-110"
             >
@@ -564,7 +595,7 @@ export const Editor: React.FC<{onBackToStart: () => void}> = ({onBackToStart}) =
         <AssetsSidebar playerRef={playerRef} />
 
         {/* Preview + transport */}
-        <section className="flex-1 bg-surface-dim flex flex-col min-w-0">
+        <section aria-label="Preview" className="flex-1 bg-surface-dim flex flex-col min-w-0">
           <div className="flex-1 flex items-center justify-center p-6 min-h-0">
             <div className="relative h-full" style={{aspectRatio: `${meta.width} / ${meta.height}`}}>
               <Player
@@ -577,7 +608,8 @@ export const Editor: React.FC<{onBackToStart: () => void}> = ({onBackToStart}) =
                 compositionHeight={meta.height}
                 style={{width: '100%', height: '100%', borderRadius: 8, overflow: 'hidden', border: '1px solid rgba(70,69,84,0.3)'}}
               />
-              <div ref={stageRef} onPointerDown={onStagePointerDown} className="absolute inset-0" style={{cursor: selectedClipId ? 'move' : visibleCaption ? 'grab' : 'default'}} />
+              {/* pointer hit-test layer over the player: select / drag captions / pan clips */}
+              <div ref={stageRef} aria-hidden="true" onPointerDown={onStagePointerDown} className="absolute inset-0" style={{cursor: selectedClipId ? 'move' : visibleCaption ? 'grab' : 'default'}} />
 
               {/* selection box + corner resize handle (caption / b-roll / clip) */}
               {boxRect && (
@@ -587,6 +619,7 @@ export const Editor: React.FC<{onBackToStart: () => void}> = ({onBackToStart}) =
                     style={{left: boxRect.left, top: boxRect.top, width: boxRect.w, height: boxRect.h}}
                   />
                   <div
+                    aria-hidden="true"
                     onPointerDown={startResize}
                     title="Drag to resize"
                     className="absolute z-30 w-4 h-4 -ml-2 -mt-2 bg-primary border-2 border-white rounded-sm cursor-nwse-resize hover:scale-110 transition-transform"
@@ -598,12 +631,14 @@ export const Editor: React.FC<{onBackToStart: () => void}> = ({onBackToStart}) =
               {/* clip keyframe (flag) control — appears when a clip is selected */}
               {selectedClipId && (
                 <button
+                  type="button"
                   onPointerDown={(e) => e.stopPropagation()}
                   onClick={toggleKeyframe}
+                  aria-label="Add or remove a keyframe at the playhead"
                   title="Add/remove a keyframe at the playhead (then move + resize to animate)"
                   className="absolute z-30 top-2 left-2 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-surface-container-high/95 border border-outline-variant text-on-surface text-body-sm font-bold hover:bg-surface-variant"
                 >
-                  <span className="material-symbols-outlined text-[16px] text-primary" style={{fontVariationSettings: "'FILL' 1"}}>diamond</span>
+                  <span aria-hidden="true" className="material-symbols-outlined text-[16px] text-primary" style={{fontVariationSettings: "'FILL' 1"}}>diamond</span>
                   Keyframe
                 </button>
               )}
@@ -611,16 +646,21 @@ export const Editor: React.FC<{onBackToStart: () => void}> = ({onBackToStart}) =
           </div>
 
           {/* transport */}
-          <div className="h-14 bg-surface-container-low border-t border-outline-variant flex items-center justify-between px-6 shrink-0">
-            <span className="font-mono text-mono-label text-primary">{fmt(currentFrame / meta.fps)} / {fmt(totalSec)}</span>
+          <div role="group" aria-label="Transport" className="h-14 bg-surface-container-low border-t border-outline-variant flex items-center justify-between px-6 shrink-0">
+            <span aria-label={`Playhead at ${fmt(currentFrame / meta.fps)} of ${fmt(totalSec)}`} className="font-mono text-mono-label text-primary">{fmt(currentFrame / meta.fps)} / {fmt(totalSec)}</span>
             <div className="flex items-center gap-6">
-              <button onClick={() => skip(-1)} className="material-symbols-outlined text-on-surface-variant hover:text-primary transition-colors">skip_previous</button>
-              <button onClick={() => playerRef.current?.toggle()} className="w-10 h-10 rounded-full bg-on-surface text-surface flex items-center justify-center hover:scale-105 active:scale-95 transition-all">
-                <span className="material-symbols-outlined text-[26px]" style={{fontVariationSettings: "'FILL' 1"}}>{playing ? 'pause' : 'play_arrow'}</span>
-              </button>
-              <button onClick={() => skip(1)} className="material-symbols-outlined text-on-surface-variant hover:text-primary transition-colors">skip_next</button>
+              <IconButton icon="skip_previous" size={24} label="Previous clip" onClick={() => skip(-1)} className="text-on-surface-variant hover:text-primary transition-colors" />
+              <IconButton
+                icon={playing ? 'pause' : 'play_arrow'}
+                size={26}
+                fill
+                label={playing ? 'Pause (Space)' : 'Play (Space)'}
+                onClick={() => playerRef.current?.toggle()}
+                className="w-10 h-10 rounded-full bg-on-surface text-surface hover:scale-105 active:scale-95 transition-all"
+              />
+              <IconButton icon="skip_next" size={24} label="Next clip" onClick={() => skip(1)} className="text-on-surface-variant hover:text-primary transition-colors" />
             </div>
-            <button onClick={() => playerRef.current?.requestFullscreen()} className="material-symbols-outlined text-on-surface-variant hover:text-primary transition-colors text-[20px]">fullscreen</button>
+            <IconButton icon="fullscreen" size={20} label="Fullscreen preview" onClick={() => playerRef.current?.requestFullscreen()} className="text-on-surface-variant hover:text-primary transition-colors" />
           </div>
         </section>
 
@@ -636,23 +676,12 @@ export const Editor: React.FC<{onBackToStart: () => void}> = ({onBackToStart}) =
       </main>
 
       {/* Timeline */}
-      <footer className="bg-surface-container-lowest border-t border-outline-variant z-50 shrink-0" style={{height: 300}}>
+      <footer aria-label="Timeline" className="bg-surface-container-lowest border-t border-outline-variant z-50 shrink-0" style={{height: 300}}>
         <Timeline playerRef={playerRef} />
       </footer>
     </div>
   );
 };
-
-const HdrIcon: React.FC<{icon: string; title: string; onClick: () => void; disabled?: boolean}> = ({icon, title, onClick, disabled}) => (
-  <button
-    title={title}
-    onClick={onClick}
-    disabled={disabled}
-    className="p-1.5 rounded-lg hover:bg-surface-variant transition-colors text-on-surface-variant disabled:opacity-30"
-  >
-    <span className="material-symbols-outlined text-[20px]">{icon}</span>
-  </button>
-);
 
 const Center: React.FC<{children: React.ReactNode}> = ({children}) => (
   <div className="flex h-screen items-center justify-center text-on-surface-variant">{children}</div>
